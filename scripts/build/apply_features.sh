@@ -93,10 +93,20 @@ apply_susfs() {
   if [[ -f "${PROJECT_ROOT}/fs/namespace.c" ]] && ! grep -q "linux/susfs_def.h" "${PROJECT_ROOT}/fs/namespace.c"; then
     perl -0pi -e 's{#include <linux/mnt_idmapping.h>\n}{#include <linux/mnt_idmapping.h>\n#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT\n#include <linux/susfs_def.h>\n#endif\n}' "${PROJECT_ROOT}/fs/namespace.c" || true
   fi
-  # 2) selinuxfs: ReSukiSU dropped the fake-selinux-status spoof symbols the
-  #    susfs hunk references; neutralise the refs (plain passthrough).
+  # 2) selinuxfs: upstream ReSukiSU dropped the fake-selinux-status spoof symbols
+  #    that the susfs hunk references (fake_status, fake_status_initialize_key,
+  #    initialize_fake_status, ksu_selinux_hide_{enabled,running}); neutralise
+  #    every USE so vmlinux links (was: ld.lld undefined symbol
+  #    fake_status_initialize_key). Disables the fake-status spoof; rest of SuSFS
+  #    is unaffected. The extern declarations are left (harmless once unused).
   if [[ -f "${PROJECT_ROOT}/security/selinux/selinuxfs.c" ]]; then
-    perl -0pi -e 's/&& ksu_selinux_hide_enabled\)/&& 0)/g; s/data = fake_status;/data = NULL;/g; s/initialize_fake_status\(\);/(void)0;/g' "${PROJECT_ROOT}/security/selinux/selinuxfs.c" || true
+    perl -0pi -e '
+      s/&& ksu_selinux_hide_enabled\)/&& 0)/g;
+      s/data = fake_status;/data = NULL;/g;
+      s/static_branch_unlikely\(&fake_status_initialize_key\) && !ret && !fake_status/0/g;
+      s/initialize_fake_status\(\);/(void)0;/g;
+      s/!ksu_selinux_hide_running/1/g;
+    ' "${PROJECT_ROOT}/security/selinux/selinuxfs.c" || true
   fi
 
   # Report rejects (non-fatal) so the next iteration can add fixups, then clean.
