@@ -42,6 +42,14 @@ log "Jobs:    ${JOBS}"
 log "Out dir: ${OUT_DIR}"
 
 # 1. Toolchain
+# kernel_ci_center hands us a toolchain via TOOLCHAIN_DIR (the shared sm8750
+# clang-r510928). We do NOT use it -- that newer clang builds a non-booting
+# android13-5.15 image -- so drop it to reclaim runner disk, then fetch our own
+# Samsung clang-r450784e via setup_toolchain.sh (into ${PROJECT_ROOT}/prebuilts).
+if [[ -n "${TOOLCHAIN_DIR:-}" && -d "${TOOLCHAIN_DIR}" && "${TOOLCHAIN_DIR}" != "${TOOLCHAIN_ROOT}" ]]; then
+  log "Discarding CI-supplied toolchain ${TOOLCHAIN_DIR} (sm8550 uses native clang-r450784e); freeing disk."
+  rm -rf "${TOOLCHAIN_DIR}" || true
+fi
 if [[ "${SKIP_TOOLCHAIN_SETUP:-0}" != "1" ]]; then
   "${SCRIPT_DIR}/setup_toolchain.sh"
 fi
@@ -156,14 +164,15 @@ MAKE_ARGS=(
 log "Configuring (defconfig + gki_defconfig fragment)..."
 make "${MAKE_ARGS[@]}" gki_defconfig
 
-# Match the sm8650/sm8750 trees: build with LTO disabled. The committed
-# gki_defconfig ships CONFIG_LTO_CLANG_FULL=y, whose monolithic 'LTO
-# vmlinux.o' link OOM-kills the 16 GB CI runner (job dies with exit 143 /
-# "runner received a shutdown signal"). LTO_NONE keeps the link within
-# memory and matches what sm8650/sm8750 ship.
-log "Disabling full LTO (memory; matches sm8650/sm8750 LTO_NONE)..."
+# LTO: use ThinLTO. The committed gki_defconfig ships CONFIG_LTO_CLANG_FULL=y +
+# CONFIG_CFI_CLANG=y. FULL LTO OOM-kills the 16 GB CI runner (exit 143), but
+# turning LTO fully OFF also silently drops CFI (CONFIG_CFI_CLANG depends on
+# LTO_CLANG) and produces a NON-BOOTING image. ThinLTO has far lower peak
+# memory than FULL (fits the runner) AND keeps CFI enabled, matching Samsung's
+# hardening -- the AOSP/Pixel-standard combination, and it boots.
+log "Selecting ThinLTO (keeps CFI, fits CI memory; FULL LTO OOMs)..."
 scripts/config --file "${OUT_DIR}/.config" \
-  -d LTO_CLANG -d LTO_CLANG_FULL -d LTO_CLANG_THIN -e LTO_NONE
+  -d LTO_NONE -e LTO_CLANG -e LTO_CLANG_THIN -d LTO_CLANG_FULL
 
 # LKM mode = pure kernel image with NO KSU integration. KSU is delivered
 # at flash time by the KSU manager app, which patches init_boot to add a
