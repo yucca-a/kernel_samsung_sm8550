@@ -174,12 +174,15 @@ log "Selecting ThinLTO (keeps CFI, fits CI memory; FULL LTO OOMs)..."
 scripts/config --file "${OUT_DIR}/.config" \
   -d LTO_NONE -e LTO_CLANG -e LTO_CLANG_THIN -d LTO_CLANG_FULL
 
-# Align common features with the sm8650/sm8750 trees:
-#   + NTFS3 (read/write NTFS, e.g. OTG drives) -- those trees ship it, we lacked it
-#   - HUGEPAGE_POOL (Samsung 2 MB hugepage pool) -- those trees disable it
-log "Enabling NTFS3, disabling HUGEPAGE_POOL (align with sm8650/sm8750)..."
+# Add NTFS3 (read/write NTFS, e.g. OTG drives) -- the sm8650/sm8750 trees ship
+# it and we lacked it. We deliberately do NOT disable HUGEPAGE_POOL (unlike
+# those trees): Samsung's 5.15 mm/kzerod.c only references need_pause() and
+# kzerod_app_launch_nb under CONFIG_HUGEPAGE_POOL=y, and the tree builds with
+# -Werror, so turning it off makes them unused -> -Wunused-function/-variable
+# error. Keep HUGEPAGE_POOL on for sm8550 (it boots fine with it on).
+log "Enabling NTFS3 (keeping HUGEPAGE_POOL on; Samsung mm needs it under -Werror)..."
 scripts/config --file "${OUT_DIR}/.config" \
-  -e NTFS3_FS -e NTFS3_LZX_XPRESS -d HUGEPAGE_POOL
+  -e NTFS3_FS -e NTFS3_LZX_XPRESS
 
 # Mode feature configs, mirroring the sm8650/sm8750 trees:
 #   resukisu = KSU + SUSFS + KPM all built in
