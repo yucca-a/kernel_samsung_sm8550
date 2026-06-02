@@ -174,6 +174,13 @@ log "Selecting ThinLTO (keeps CFI, fits CI memory; FULL LTO OOMs)..."
 scripts/config --file "${OUT_DIR}/.config" \
   -d LTO_NONE -e LTO_CLANG -e LTO_CLANG_THIN -d LTO_CLANG_FULL
 
+# Align common features with the sm8650/sm8750 trees:
+#   + NTFS3 (read/write NTFS, e.g. OTG drives) -- those trees ship it, we lacked it
+#   - HUGEPAGE_POOL (Samsung 2 MB hugepage pool) -- those trees disable it
+log "Enabling NTFS3, disabling HUGEPAGE_POOL (align with sm8650/sm8750)..."
+scripts/config --file "${OUT_DIR}/.config" \
+  -e NTFS3_FS -e NTFS3_LZX_XPRESS -d HUGEPAGE_POOL
+
 # Mode feature configs, mirroring the sm8650/sm8750 trees:
 #   resukisu = KSU + SUSFS + KPM all built in
 #   lkm      = pure kernel, none of them (KSU injected at flash time by the
