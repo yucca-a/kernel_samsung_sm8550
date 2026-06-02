@@ -176,10 +176,11 @@ scripts/config --file "${OUT_DIR}/.config" \
 # kzerod_app_launch_nb under CONFIG_HUGEPAGE_POOL=y, and the tree builds with
 # -Werror, so turning it off makes them unused -> -Wunused-function/-variable
 # error. Keep HUGEPAGE_POOL on for sm8550 (it boots fine with it on).
-log "Enabling NTFS3 + full tmpfs (keeping HUGEPAGE_POOL on; Samsung mm needs it under -Werror)..."
+log "Enabling NTFS3 + full tmpfs + TTL target (keeping HUGEPAGE_POOL on; Samsung mm needs it under -Werror)..."
 scripts/config --file "${OUT_DIR}/.config" \
   -e NTFS3_FS -e NTFS3_LZX_XPRESS \
-  -e TMPFS -e TMPFS_POSIX_ACL -e TMPFS_XATTR -e TMPFS_INODE64
+  -e TMPFS -e TMPFS_POSIX_ACL -e TMPFS_XATTR -e TMPFS_INODE64 \
+  -e NETFILTER_XT_TARGET_HL
 
 # Mode feature configs, mirroring the sm8650/sm8750 trees:
 #   resukisu = KSU + SUSFS + KPM all built in

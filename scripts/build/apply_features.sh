@@ -274,6 +274,21 @@ apply_wild_perf() {
       warn "  ! skip (does not apply): ${p}"
     fi
   done
+
+  # Ptrace info-leak fix (kernels < 5.16; android13-5.15 needs it). It lives at
+  # the WildKernels/kernel_patches repo root, not under common/.
+  local pf="${WILD_PATCHES_DIR}/gki_ptrace.patch"
+  if [[ -f "${pf}" ]]; then
+    if patch -p1 -R --dry-run -F3 -s -f --no-backup-if-mismatch < "${pf}" >/dev/null 2>&1; then
+      warn "  ↺ already applied: gki_ptrace.patch"
+    elif patch -p1 -F3 -s --no-backup-if-mismatch < "${pf}" >/dev/null 2>&1; then
+      ok "  + applied: gki_ptrace.patch (ptrace leak fix)"
+    else
+      warn "  ! skip (does not apply): gki_ptrace.patch"
+    fi
+  else
+    warn "  missing: gki_ptrace.patch"
+  fi
   popd >/dev/null
   ok "Wild perf patches done."
 }
