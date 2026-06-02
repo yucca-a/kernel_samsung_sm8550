@@ -42,14 +42,10 @@ log "Jobs:    ${JOBS}"
 log "Out dir: ${OUT_DIR}"
 
 # 1. Toolchain
-# kernel_ci_center hands us a toolchain via TOOLCHAIN_DIR (the shared sm8750
-# clang-r510928). We do NOT use it -- that newer clang builds a non-booting
-# android13-5.15 image -- so drop it to reclaim runner disk, then fetch our own
-# Samsung clang-r450784e via setup_toolchain.sh (into ${PROJECT_ROOT}/prebuilts).
-if [[ -n "${TOOLCHAIN_DIR:-}" && -d "${TOOLCHAIN_DIR}" && "${TOOLCHAIN_DIR}" != "${TOOLCHAIN_ROOT}" ]]; then
-  log "Discarding CI-supplied toolchain ${TOOLCHAIN_DIR} (sm8550 uses native clang-r450784e); freeing disk."
-  rm -rf "${TOOLCHAIN_DIR}" || true
-fi
+# kernel_ci_center fetches our own clang-r450784e (yucca-a/sm8550-toolchain) and
+# exports TOOLCHAIN_DIR; common.sh points CLANG_BIN into it, so setup_toolchain.sh
+# sees clang already present and skips downloading. For standalone local builds
+# (no TOOLCHAIN_DIR) it self-downloads r450784e into ${PROJECT_ROOT}/prebuilts.
 if [[ "${SKIP_TOOLCHAIN_SETUP:-0}" != "1" ]]; then
   "${SCRIPT_DIR}/setup_toolchain.sh"
 fi

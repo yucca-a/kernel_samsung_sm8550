@@ -47,18 +47,25 @@ SM8550_CODENAMES=(
 )
 
 # ---- toolchain configuration ----
-# ALWAYS build with Samsung's own clang-r450784e (the toolchain android13-5.15
-# was released with). We deliberately do NOT reuse the CI-supplied TOOLCHAIN_DIR
-# (the shared sm8750 clang-r510928): that 6.6-era clang compiles 5.15 but the
-# resulting image does not boot. setup_toolchain.sh fetches r450784e (3-part
-# split) into ${PROJECT_ROOT}/prebuilts.
+# Build with Samsung's own clang-r450784e (the toolchain android13-5.15 shipped
+# with; the newer sm8750 clang-r510928 compiles but does NOT boot). Under CI,
+# kernel_ci_center fetches our clean repackaging (yucca-a/sm8550-toolchain) and
+# exports TOOLCHAIN_DIR -> we use that. Standalone, setup_toolchain.sh
+# self-downloads r450784e (3-part split) into ${PROJECT_ROOT}/prebuilts.
 TOOLCHAIN_URLS=(
   "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_aa.tar.gz"
   "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ab.tar.gz"
   "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ac.tar.gz"
 )
-TOOLCHAIN_ROOT="${PROJECT_ROOT}/prebuilts"
-CLANG_BIN="${TOOLCHAIN_ROOT}/clang/host/linux-x86/clang-r450784e/bin"
+TOOLCHAIN_ROOT="${TOOLCHAIN_DIR:-${PROJECT_ROOT}/prebuilts}"
+# Auto-detect the clang version dir (CI-provided r450784e prebuilts or the
+# self-downloaded one); fall back to the r450784e path before it exists.
+_sm8550_clang_dirs=( "${TOOLCHAIN_ROOT}"/clang/host/linux-x86/clang-*/bin )
+if [[ -x "${_sm8550_clang_dirs[0]}/clang" ]]; then
+  CLANG_BIN="${_sm8550_clang_dirs[0]}"
+else
+  CLANG_BIN="${TOOLCHAIN_ROOT}/clang/host/linux-x86/clang-r450784e/bin"
+fi
 BUILDTOOLS_BIN="${TOOLCHAIN_ROOT}/build-tools/linux-x86/bin"
 BUILDTOOLS_PATH_BIN="${TOOLCHAIN_ROOT}/build-tools/path/linux-x86"
 # kernel-build-tools provides pahole, depmod, mkbootimg, etc. that the
