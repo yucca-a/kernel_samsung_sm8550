@@ -174,14 +174,19 @@ log "Selecting ThinLTO (keeps CFI, fits CI memory; FULL LTO OOMs)..."
 scripts/config --file "${OUT_DIR}/.config" \
   -d LTO_NONE -e LTO_CLANG -e LTO_CLANG_THIN -d LTO_CLANG_FULL
 
-# LKM mode = pure kernel image with NO KSU integration. KSU is delivered
-# at flash time by the KSU manager app, which patches init_boot to add a
-# userspace shim that uses kprobes/uprobes/kallsyms to instrument vmlinux
-# at runtime. The kernel image stays vanilla.
-# For resukisu, leave CONFIG_KSU at the defconfig default (=y, built in).
+# Mode feature configs, mirroring the sm8650/sm8750 trees:
+#   resukisu = KSU + SUSFS + KPM all built in
+#   lkm      = pure kernel, none of them (KSU injected at flash time by the
+#              manager app patching init_boot; SUSFS/KPM must be off).
+# Enabling KSU_SUSFS is what actually turns SuSFS on (apply_features.sh only
+# drops in the source + Kconfig); enabling KPM + the patch_linux step below is
+# what makes KPM ("核心" support) work in the manager.
 if [[ "${MODE}" == "lkm" ]]; then
-  log "Disabling CONFIG_KSU (pure kernel; KSU injected at flash time via init_boot patch)..."
-  scripts/config --file "${OUT_DIR}/.config" --disable KSU
+  log "lkm: disabling KSU / KSU_SUSFS / KPM (pure kernel; KSU injected at flash time)..."
+  scripts/config --file "${OUT_DIR}/.config" --disable KSU --disable KSU_SUSFS --disable KPM
+else
+  log "resukisu: enabling KSU / KSU_SUSFS / KPM..."
+  scripts/config --file "${OUT_DIR}/.config" --enable KSU --enable KSU_SUSFS --enable KPM
 fi
 
 make "${MAKE_ARGS[@]}" olddefconfig
@@ -238,6 +243,25 @@ if [[ ! -f "${IMAGE}" ]]; then
 fi
 ok "Build succeeded: ${IMAGE}"
 ls -lh "${IMAGE}"
+
+# 6.5 KPM: patch the Image so KernelSU's KPM ("核心") is supported (resukisu
+# only), exactly like the sm8650/sm8750 trees. patch_linux is the SukiSU KPM
+# patcher; it rewrites Image -> oImage with KPM enabled. Without this the
+# manager reports KPM unsupported even though CONFIG_KPM=y.
+if [[ "${MODE}" == "resukisu" ]]; then
+  if [[ -x "${SCRIPT_DIR}/patch_linux" ]]; then
+    log "KPM: patching Image with patch_linux..."
+    ( cd "$(dirname "${IMAGE}")" \
+        && cp -f "${SCRIPT_DIR}/patch_linux" ./patch_linux \
+        && chmod +x ./patch_linux \
+        && ./patch_linux \
+        && mv -f oImage Image \
+        && rm -f ./patch_linux )
+    ok "KPM-patched Image: $(stat -c%s "${IMAGE}") bytes"
+  else
+    die "patch_linux not found at ${SCRIPT_DIR}/patch_linux (needed for KPM in resukisu)"
+  fi
+fi
 
 # 7. Optional: chain into AnyKernel3 packaging. Default on.
 if [[ "${ZIP_AFTER:-1}" == "1" ]]; then
