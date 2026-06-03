@@ -87,7 +87,7 @@ KSU_DIR="${PROJECT_ROOT}/KernelSU"
 # tracking the moving branch HEAD.
 SUSFS_REMOTE="${SUSFS_REMOTE_OVERRIDE:-https://github.com/ShirkNeko/susfs4ksu.git}"
 SUSFS_BRANCH="${SUSFS_BRANCH:-gki-android13-5.15}"
-SUSFS_PIN="${SUSFS_PIN:-529919fbc9f8aee6ee70eb3a8890ef33af0a109c}"  # WildKernels pin (android13-5.15)
+SUSFS_PIN="${SUSFS_PIN:-cb79a8b35e2387a98645024f432b8d0c7cab6625}"  # susfs4ksu gki-android13-5.15 tip (bumped 2026-06-03: SUS_PATH errno + mnt_id defaults)
 
 # ---- helpers ----
 log()  { printf "\e[1;36m[*]\e[0m %s\n" "$*"; }
