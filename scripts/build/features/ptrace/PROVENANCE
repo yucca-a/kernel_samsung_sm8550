@@ -1,0 +1,7 @@
+gki_ptrace.patch vendored
+=========================
+ptrace hardening for android13-5.15: the upstream ~5.16 change that threads
+the ptrace 'message' through ptrace_stop()/ptrace_notify(), plus a small
+hardening that zeroes child->ptrace_message on attach/detach (stops a tracer
+from leaking a stale event value such as the zygote PID). Vendored so the
+build no longer fetches it from an external patch repo. GPL-2.0.
