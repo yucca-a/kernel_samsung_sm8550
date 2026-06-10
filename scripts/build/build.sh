@@ -254,21 +254,24 @@ ls -lh "${IMAGE}"
 
 # 6.5 KPM: patch the Image so KernelSU's KPM ("核心") is supported (resukisu
 # only), exactly like the sm8650/sm8750 trees. patch_linux is the SukiSU KPM
-# patcher; it rewrites Image -> oImage with KPM enabled. Without this the
-# manager reports KPM unsupported even though CONFIG_KPM=y.
+# patcher; it rewrites Image -> oImage with KPM support (KPM comes from this
+# image patch, not a CONFIG_KPM symbol -- the config summary shows KPM=n). Make
+# sure the patcher is executable (survives a lost exec bit), keep its output
+# visible, and abort loudly if it fails or doesn't change the Image -- never
+# ship an un-patched Image as if KPM were applied.
 if [[ "${MODE}" == "resukisu" ]]; then
-  if [[ -x "${SCRIPT_DIR}/patch_linux" ]]; then
-    log "KPM: patching Image with patch_linux..."
-    ( cd "$(dirname "${IMAGE}")" \
-        && cp -f "${SCRIPT_DIR}/patch_linux" ./patch_linux \
-        && chmod +x ./patch_linux \
-        && ./patch_linux \
-        && mv -f oImage Image \
-        && rm -f ./patch_linux )
-    ok "KPM-patched Image: $(stat -c%s "${IMAGE}") bytes"
-  else
-    die "patch_linux not found at ${SCRIPT_DIR}/patch_linux (needed for KPM in resukisu)"
-  fi
+  [[ -f "${SCRIPT_DIR}/patch_linux" ]] || die "patch_linux not found at ${SCRIPT_DIR}/patch_linux (needed for KPM in resukisu)"
+  log "KPM: patching Image with patch_linux..."
+  kpm_pre="$(stat -c%s "${IMAGE}")"
+  ( cd "$(dirname "${IMAGE}")" \
+      && cp -f "${SCRIPT_DIR}/patch_linux" ./patch_linux \
+      && chmod +x ./patch_linux \
+      && ./patch_linux \
+      && mv -f oImage Image \
+      && rm -f ./patch_linux ) || die "KPM patch_linux failed"
+  kpm_post="$(stat -c%s "${IMAGE}")"
+  ok "KPM-patched Image: ${kpm_post} bytes (was ${kpm_pre})"
+  [[ "${kpm_post}" != "${kpm_pre}" ]] || die "KPM patch did not change the Image (${kpm_pre} bytes) -- NOT applied"
 fi
 
 # 7. Optional: chain into AnyKernel3 packaging. Default on.
