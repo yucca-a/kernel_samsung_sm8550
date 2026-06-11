@@ -183,18 +183,18 @@ scripts/config --file "${OUT_DIR}/.config" \
   -e NETFILTER_XT_TARGET_HL
 
 # Mode feature configs, mirroring the sm8650/sm8750 trees:
-#   resukisu = KSU + SUSFS + KPM all built in
+#   resukisu = KSU + SUSFS built in
 #   lkm      = pure kernel, none of them (KSU injected at flash time by the
-#              manager app patching init_boot; SUSFS/KPM must be off).
+#              manager app patching init_boot; SUSFS must be off).
 # Enabling KSU_SUSFS is what actually turns SuSFS on (apply_features.sh only
-# drops in the source + Kconfig); enabling KPM + the patch_linux step below is
-# what makes KPM ("核心" support) work in the manager.
+# drops in the source + Kconfig). KPM was dropped: ReSukiSU upstream removed it
+# (PR #226, 2026-06-06), so there is no kernel-side KPM driver to enable.
 if [[ "${MODE}" == "lkm" ]]; then
-  log "lkm: disabling KSU / KSU_SUSFS / KPM (pure kernel; KSU injected at flash time)..."
-  scripts/config --file "${OUT_DIR}/.config" --disable KSU --disable KSU_SUSFS --disable KPM
+  log "lkm: disabling KSU / KSU_SUSFS (pure kernel; KSU injected at flash time)..."
+  scripts/config --file "${OUT_DIR}/.config" --disable KSU --disable KSU_SUSFS
 else
-  log "resukisu: enabling KSU / KSU_SUSFS / KPM..."
-  scripts/config --file "${OUT_DIR}/.config" --enable KSU --enable KSU_SUSFS --enable KPM
+  log "resukisu: enabling KSU / KSU_SUSFS..."
+  scripts/config --file "${OUT_DIR}/.config" --enable KSU --enable KSU_SUSFS
 fi
 
 make "${MAKE_ARGS[@]}" olddefconfig
@@ -252,27 +252,12 @@ fi
 ok "Build succeeded: ${IMAGE}"
 ls -lh "${IMAGE}"
 
-# 6.5 KPM: patch the Image so KernelSU's KPM ("核心") is supported (resukisu
-# only), exactly like the sm8650/sm8750 trees. patch_linux is the SukiSU KPM
-# patcher; it rewrites Image -> oImage with KPM support (KPM comes from this
-# image patch, not a CONFIG_KPM symbol -- the config summary shows KPM=n). Make
-# sure the patcher is executable (survives a lost exec bit), keep its output
-# visible, and abort loudly if it fails or doesn't change the Image -- never
-# ship an un-patched Image as if KPM were applied.
-if [[ "${MODE}" == "resukisu" ]]; then
-  [[ -f "${SCRIPT_DIR}/patch_linux" ]] || die "patch_linux not found at ${SCRIPT_DIR}/patch_linux (needed for KPM in resukisu)"
-  log "KPM: patching Image with patch_linux..."
-  kpm_pre="$(stat -c%s "${IMAGE}")"
-  ( cd "$(dirname "${IMAGE}")" \
-      && cp -f "${SCRIPT_DIR}/patch_linux" ./patch_linux \
-      && chmod +x ./patch_linux \
-      && ./patch_linux \
-      && mv -f oImage Image \
-      && rm -f ./patch_linux ) || die "KPM patch_linux failed"
-  kpm_post="$(stat -c%s "${IMAGE}")"
-  ok "KPM-patched Image: ${kpm_post} bytes (was ${kpm_pre})"
-  [[ "${kpm_post}" != "${kpm_pre}" ]] || die "KPM patch did not change the Image (${kpm_pre} bytes) -- NOT applied"
-fi
+# 6.5 KPM: dropped. ReSukiSU upstream removed KPM support entirely (PR #226,
+# merged 2026-06-06). drivers/kernelsu is fetched from ReSukiSU @ main, so the
+# kernel-side KPM driver is gone; running patch_linux would only stamp an inert
+# patch onto the Image (and falsely log "KPM-patched"). resukisu mode now ships
+# KSU + SUSFS only. To bring KPM back, point fetch_kernelsu.sh at a KPM-capable
+# source (e.g. SukiSU-Ultra) and restore the patch_linux step here.
 
 # 7. Optional: chain into AnyKernel3 packaging. Default on.
 if [[ "${ZIP_AFTER:-1}" == "1" ]]; then
