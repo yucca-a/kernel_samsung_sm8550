@@ -27,7 +27,7 @@ IMAGE="${OUT_DIR}/arch/arm64/boot/Image"
 # Zip scheme (unified across sm8550/sm8650/sm8750): <prefix>_<tag>_<base-version>_<MMDD>.zip
 # e.g. SM8550_resukisu_5.15.207_0602.zip / SM8550_LKM_5.15.207_0602.zip. tag = resukisu/LKM;
 # base-version is VERSION.PATCHLEVEL.SUBLEVEL (kernel.release with the localversion
-# stripped); MMDD is the build month+day. The full -android13-5-...-abogki<n>-4k
+# stripped); MMDD is the build month+day. The full -android13-5-...-<short-commit>-4k
 # string still lives in uname.
 TAG="resukisu"; [[ "${MODE}" == "lkm" ]] && TAG="LKM"
 MD="$(date +%m%d)"

@@ -15,6 +15,8 @@
 #   JOBS                                 : parallel make jobs (default nproc)
 #   SKIP_TOOLCHAIN_SETUP=1               : trust prebuilts/ as-is
 #   ZIP_AFTER=0                          : skip auto-pack of AnyKernel3 zip
+#   BUILD_ID                             : short commit build id in the kernel name
+#   BUILD_NUM                            : legacy alias for BUILD_ID
 
 set -euo pipefail
 
@@ -103,12 +105,10 @@ else
 fi
 
 # 4. Configure
-# Kernel localversion: match the sm8650/sm8750 abogki scheme
-#   -android13-<kmi_gen>-<tag>-abogki<buildnum>-4k   (android13-5.15 == gen 5)
-# A random 9-digit build number is generated each build; override BUILD_NUM
-# to reproduce a specific release string.
-BUILD_NUM="${BUILD_NUM:-$(shuf -i 100000000-999999999 -n 1)}"
-LOCALVERSION="-${ANDROID_BASE}-${KMI_GENERATION}-${KERNEL_TAG}-abogki${BUILD_NUM}-${PAGE_SIZE_TAG}"
+# Kernel localversion: match the sm8650/sm8750 short-commit scheme.
+#   -android13-<kmi_gen>-<tag>-<short-commit>-4k   (android13-5.15 == gen 5)
+BUILD_ID="${BUILD_ID:-${BUILD_NUM:-$(git rev-parse --short=7 HEAD 2>/dev/null || echo unknown)}}"
+LOCALVERSION="-${ANDROID_BASE}-${KMI_GENERATION}-${KERNEL_TAG}-${BUILD_ID}-${PAGE_SIZE_TAG}"
 log "Localversion: ${LOCALVERSION}"
 export KBUILD_BUILD_USER="universal"
 export KBUILD_BUILD_HOST="sm8550"

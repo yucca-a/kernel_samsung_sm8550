@@ -129,7 +129,9 @@ out/<mode>/arch/arm64/boot/Image          # 内核镜像
 AnyKernel3 zip（由 scripts/build/pack_anykernel.sh 生成，命名 SM8550_<tag>_<版本>_<MMDD>.zip）
 ```
 
-版本号形如 `5.15.207-android13-5-YuccaA-abogki<9位随机>-4k`。
+Release tag 形如 `sm8550-resukisu-87c8b42`；zip 产物仍保持
+`SM8550_resukisu_5.15.207_0614.zip` 这类命名。内核版本号形如
+`5.15.207-android13-5-YuccaA-87c8b42-4k`，其中 `87c8b42` 是源码短 commit。
 
 > ⚠️ **工具链与 LTO 不能乱换。** SM8550 必须用三星 `clang-r450784e`（android13-5.15 配套的那版）—— 新的 `clang-r510928` 能编过但**不开机**。LTO 必须用 **ThinLTO**：FULL LTO 会把 16G 的 CI runner OOM 掉，而完全关 LTO 会连带丢掉 CFI、同样产出**不开机**的镜像。脚本已自动选好，独立编译时也会自动下载 r450784e。
 
@@ -157,7 +159,7 @@ AnyKernel3 zip（由 scripts/build/pack_anykernel.sh 生成，命名 SM8550_<tag
 | `SKIP_TOOLCHAIN_SETUP` | `0` | 设 `1` 信任现有 `prebuilts/`，跳过下载 |
 | `ZIP_AFTER` | `1` | 设 `0` 只编 Image 不打包 |
 | `USE_CCACHE` | `1` | 设 `0` 关闭 ccache |
-| `BUILD_NUM` | 随机 | 固定版本号里的 `abogki` 编号（复现某次发布） |
+| `BUILD_ID` | 当前源码短 commit | 固定版本号里的构建代号（`BUILD_NUM` 是兼容旧 CI 的别名） |
 | `APPLY_SUSFS` | `1`（lkm 强制 `0`） | SUSFS 隐藏钩子（需 KSU） |
 | `APPLY_ZEROMOUNT` | `1`（lkm 跳过） | ZeroMount 挂载隐藏钩子（跟随 SUSFS） |
 | `SUPER_BUILDERS_PIN` | 见脚本 | 覆盖 Super-Builders 的 ZeroMount patch commit |
@@ -288,7 +290,7 @@ ZIP_AFTER=0 ./scripts/build/build.sh              # Image only
 KERNEL_TAG=YuccaB ./scripts/build/build.sh        # custom banner tag
 ```
 
-Output: `out/<mode>/arch/arm64/boot/Image`, plus `SM8550_<tag>_<ver>_<MMDD>.zip` from `pack_anykernel.sh`. Release string: `5.15.207-android13-5-YuccaA-abogki<random>-4k`.
+Output: `out/<mode>/arch/arm64/boot/Image`, plus `SM8550_<tag>_<ver>_<MMDD>.zip` from `pack_anykernel.sh`. Release tag example: `sm8550-resukisu-87c8b42`. Kernel release string example: `5.15.207-android13-5-YuccaA-87c8b42-4k`.
 
 > ⚠️ **Do not swap the toolchain or LTO.** SM8550 needs Samsung `clang-r450784e` — the newer `clang-r510928` compiles but does **not boot**. LTO must be **ThinLTO**: FULL LTO OOM-kills a 16 GB CI runner, and turning LTO fully off silently drops CFI and also yields a non-booting image. The scripts pick this automatically.
 
@@ -296,7 +298,7 @@ Prereqs: a recent Linux (Ubuntu 22.04+/WSL2), ~10 GB free disk, network on first
 
 ## ⚙️ Build switches
 
-Per-feature env toggles (all default `1`, SuSFS forced `0` in lkm): `APPLY_SUSFS`, `APPLY_ZEROMOUNT`, `APPLY_BBG`, `APPLY_ZRAM`, `APPLY_BBR`, `APPLY_WILD_PERF`, `APPLY_UNICODE_FIX`, `APPLY_NTSYNC`, `APPLY_DROIDSPACES`, `APPLY_IPV6_NAT_FIX`, `APPLY_DISABLE_SAMSUNG_SEC`. Plus `KERNEL_TAG`, `JOBS`, `SKIP_TOOLCHAIN_SETUP`, `ZIP_AFTER`, `USE_CCACHE`, `BUILD_NUM`, `SUPER_BUILDERS_PIN`.
+Per-feature env toggles (all default `1`, SuSFS forced `0` in lkm): `APPLY_SUSFS`, `APPLY_ZEROMOUNT`, `APPLY_BBG`, `APPLY_ZRAM`, `APPLY_BBR`, `APPLY_WILD_PERF`, `APPLY_UNICODE_FIX`, `APPLY_NTSYNC`, `APPLY_DROIDSPACES`, `APPLY_IPV6_NAT_FIX`, `APPLY_DISABLE_SAMSUNG_SEC`. Plus `KERNEL_TAG`, `JOBS`, `SKIP_TOOLCHAIN_SETUP`, `ZIP_AFTER`, `USE_CCACHE`, `BUILD_ID`, `SUPER_BUILDERS_PIN`.
 
 ## 🔐 Security & hardening
 

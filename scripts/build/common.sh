@@ -10,11 +10,11 @@ PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/../.." >/dev/null 2>&1 && pwd)"
 
 # ---- naming ----
 # Kernel localversion follows the same scheme as the sm8650/sm8750 trees:
-#   -android<aosp>-<kmi_gen>-<tag>-abogki<buildnum>-4k
-# android13-5.15 == KMI generation 5. The random abogki build number is
-# generated per build in build.sh (override with BUILD_NUM). Override
+#   -android<aosp>-<kmi_gen>-<tag>-<short-commit>-4k
+# android13-5.15 == KMI generation 5. The short commit build id is
+# generated per build in build.sh (override with BUILD_ID). Override
 # KERNEL_TAG to change the tag (default YuccaA), e.g. the banner becomes
-# Linux version 5.15.207-android13-5-YuccaA-abogki123456789-4k ...
+# Linux version 5.15.207-android13-5-YuccaA-d4985ff-4k ...
 KERNEL_TAG="${KERNEL_TAG:-YuccaA}"
 ANDROID_BASE="android13"
 KMI_GENERATION="5"        # android13-5.15 == KMI generation 5
