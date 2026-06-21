@@ -29,6 +29,8 @@ require_grep '60_zeromount-android13-5\.15\.patch' "$APPLY" \
   "resukisu mode must apply the ZeroMount kernel patch"
 require_grep 'fix_zeromount_task_mmu' "$APPLY" \
   "ZeroMount integration must fix task_mmu metadata hook placement"
+require_grep '/usr/bin/patch -p1 -F3 -s --no-backup-if-mismatch < "\$\{patch\}"' "$APPLY" \
+  "ZeroMount integration must use GNU patch, not PATH-shadowed toybox patch"
 reject_grep '51_enhanced_susfs-android13-5\.15\.patch' "$APPLY" \
   "apply_features.sh must not force Super-Builders enhanced SUSFS over ShirkNeko SUSFS tip"
 require_grep 'ZeroMount.*lkm' "$APPLY" \

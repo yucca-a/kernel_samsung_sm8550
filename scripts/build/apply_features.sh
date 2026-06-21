@@ -196,9 +196,9 @@ apply_zeromount() {
   pushd "${PROJECT_ROOT}" >/dev/null
   if zeromount_core_present; then
     warn "ZeroMount: already applied."
-  elif patch -p1 -R --dry-run -F3 -s -f --no-backup-if-mismatch < "${patch}" >/dev/null 2>&1; then
+  elif /usr/bin/patch -p1 -R --dry-run -F3 -s -f --no-backup-if-mismatch < "${patch}" >/dev/null 2>&1; then
     warn "ZeroMount: already applied."
-  elif patch -p1 -F3 -s --no-backup-if-mismatch < "${patch}" >/dev/null 2>&1; then
+  elif /usr/bin/patch -p1 -F3 -s --no-backup-if-mismatch < "${patch}" >/dev/null 2>&1; then
     ok "ZeroMount: patch applied."
   else
     find "${PROJECT_ROOT}" -name '*.rej' -print
