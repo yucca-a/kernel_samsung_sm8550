@@ -114,6 +114,65 @@ apply_susfs() {
   find "${PROJECT_ROOT}" -name '*.orig' -delete 2>/dev/null || true
 }
 
+fix_zeromount_task_mmu() {
+  python3 - <<'PY'
+import pathlib
+import sys
+
+p = pathlib.Path('fs/proc/task_mmu.c')
+if not p.exists():
+    sys.exit(0)
+
+lines = p.read_text().splitlines(keepends=True)
+clean = []
+i = 0
+while i < len(lines):
+    if (
+        lines[i].strip() == '#ifdef CONFIG_ZEROMOUNT'
+        and i + 2 < len(lines)
+        and 'zeromount_spoof_mmap_metadata(inode, &dev, &ino);' in lines[i + 1]
+        and lines[i + 2].strip() == '#endif'
+    ):
+        i += 3
+        continue
+    clean.append(lines[i])
+    i += 1
+
+hook = [
+    '#ifdef CONFIG_ZEROMOUNT\n',
+    '\t\tzeromount_spoof_mmap_metadata(inode, &dev, &ino);\n',
+    '#endif\n',
+]
+
+for start, line in enumerate(clean):
+    if line.startswith('\tif (file) {'):
+        for end in range(start + 1, len(clean)):
+            if clean[end].startswith('\t}'):
+                block = ''.join(clean[start:end])
+                if (
+                    'struct inode *inode' in block
+                    and 'dev = inode->i_sb->s_dev;' in block
+                    and 'ino = inode->i_ino;' in block
+                ):
+                    clean[end:end] = hook
+                    p.write_text(''.join(clean))
+                    sys.exit(0)
+                break
+
+raise SystemExit('ZeroMount task_mmu fixup failed: file-backed VMA block not found')
+PY
+  ok "ZeroMount: task_mmu metadata hook fixed."
+}
+
+zeromount_core_present() {
+  [[ -f "${PROJECT_ROOT}/fs/zeromount.c" ]] &&
+    [[ -f "${PROJECT_ROOT}/include/linux/zeromount.h" ]] &&
+    grep -q 'config ZEROMOUNT' "${PROJECT_ROOT}/fs/Kconfig" &&
+    grep -q 'CONFIG_ZEROMOUNT' "${PROJECT_ROOT}/fs/Makefile" &&
+    grep -q 'zeromount_getname_hook' "${PROJECT_ROOT}/fs/namei.c" &&
+    grep -q 'zeromount_inject_dents' "${PROJECT_ROOT}/fs/readdir.c"
+}
+
 # ---------- ZeroMount ----------
 apply_zeromount() {
   if [[ "${APPLY_SUSFS}" != "1" ]]; then
@@ -135,7 +194,9 @@ apply_zeromount() {
   [[ -f "${patch}" ]] || die "ZeroMount patch missing: ${patch}"
 
   pushd "${PROJECT_ROOT}" >/dev/null
-  if patch -p1 -R --dry-run -F3 -s -f --no-backup-if-mismatch < "${patch}" >/dev/null 2>&1; then
+  if zeromount_core_present; then
+    warn "ZeroMount: already applied."
+  elif patch -p1 -R --dry-run -F3 -s -f --no-backup-if-mismatch < "${patch}" >/dev/null 2>&1; then
     warn "ZeroMount: already applied."
   elif patch -p1 -F3 -s --no-backup-if-mismatch < "${patch}" >/dev/null 2>&1; then
     ok "ZeroMount: patch applied."
@@ -143,6 +204,7 @@ apply_zeromount() {
     find "${PROJECT_ROOT}" -name '*.rej' -print
     die "ZeroMount: patch failed"
   fi
+  fix_zeromount_task_mmu
   find "${PROJECT_ROOT}" -name '*.rej' -delete 2>/dev/null || true
   find "${PROJECT_ROOT}" -name '*.orig' -delete 2>/dev/null || true
   popd >/dev/null

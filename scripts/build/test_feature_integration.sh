@@ -27,6 +27,8 @@ require_grep 'SUPER_BUILDERS_REMOTE' "$APPLY" \
   "apply_features.sh must fetch Super-Builders for ZeroMount patches"
 require_grep '60_zeromount-android13-5\.15\.patch' "$APPLY" \
   "resukisu mode must apply the ZeroMount kernel patch"
+require_grep 'fix_zeromount_task_mmu' "$APPLY" \
+  "ZeroMount integration must fix task_mmu metadata hook placement"
 reject_grep '51_enhanced_susfs-android13-5\.15\.patch' "$APPLY" \
   "apply_features.sh must not force Super-Builders enhanced SUSFS over ShirkNeko SUSFS tip"
 require_grep 'ZeroMount.*lkm' "$APPLY" \
