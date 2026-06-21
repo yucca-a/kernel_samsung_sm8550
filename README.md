@@ -10,7 +10,7 @@
 ![Android](https://img.shields.io/badge/Android-13-3ddc84)
 ![Kernel](https://img.shields.io/badge/Linux-5.15.207-f6a500)
 ![KMI](https://img.shields.io/badge/KMI-android13--5-9aa0a6)
-![Root](https://img.shields.io/badge/Root-ReSukiSU%20%2B%20SUSFS-c2185b)
+![Root](https://img.shields.io/badge/Root-ReSukiSU%20%2B%20SUSFS%20%2B%20ZeroMount-c2185b)
 ![License](https://img.shields.io/badge/License-GPL--2.0-2962ff)
 
 基于三星 `kernel_samsung_sm8550-common`（android13-5.15）的统一内核树，面向 **SM8550 平台的全部三星 Galaxy 设备**，搭载 Android 13、Linux 5.15.207。
@@ -27,7 +27,7 @@
 
 - 🔓 **内置 Root** — ReSukiSU（KernelSU）直接编译进内核（`resukisu` 模式），刷完即 root；另有 `lkm` 纯净模式，root 留到刷入时再注入。
 - 🫥 **SUSFS 隐藏** — 把 root、挂载、路径从各类检测中隐藏起来。
-- 🧩 **KPM 内核模块** — 支持 SukiSU KPM（管理器里的"核心"），可加载内核态补丁模块。
+- 🧭 **ZeroMount** — 配合 SUSFS 进一步收敛挂载检测面。
 - 📡 **Baseband-guard** — LSM 级保护 modem / vbmeta / dtbo，任何 root 用户都改不动。
 - 🔔 **Re:Kernel** — 内置，提供前后台 / 网络事件通知，便于省电与后台管控。
 - ⚡ **Wild 全套性能补丁** — F2FS/ext4 调优、内存与调度优化、唤醒/功耗优化、日志降噪一整套。
@@ -65,7 +65,7 @@ AnyKernel3 zip 保持 `do.devicecheck=1`：拒绝刷入非 SM8550 机型（如 S
 | 分支 | 默认模式 | 说明 |
 |---|---|---|
 | `main` | **LKM** | 不预置 root。KernelSU LKM（`.ko`）会编译出来，但是否加载由你决定；后续也可走官方 KernelSU 管理器的 `init_boot` 补丁流程上 root。 |
-| `resukisu` | **ReSukiSU** | 通过 [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) 内置 root，并默认开启 SUSFS、KPM、Baseband-guard 等全套特性。 |
+| `resukisu` | **ReSukiSU** | 通过 [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) 内置 root，并默认开启 SUSFS、ZeroMount、Baseband-guard 等全套特性。 |
 
 > 两种模式在两条分支上都能用 —— 分支只决定默认值。
 
@@ -77,12 +77,12 @@ AnyKernel3 zip 保持 `do.devicecheck=1`：拒绝刷入非 SM8550 机型（如 S
 |---|:---:|:---:|---|
 | ReSukiSU（KernelSU） | 内置 | 刷入时注入 | [ReSukiSU/ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) |
 | SUSFS | ✅ | ❌¹ | [ShirkNeko/susfs4ksu](https://github.com/ShirkNeko/susfs4ksu)（`gki-android13-5.15`） |
-| KPM（SukiSU 补丁模块） | ✅ | ❌² | 内置 `patch_linux` |
+| ZeroMount | ✅ | ❌¹ | [Enginex0/Super-Builders](https://github.com/Enginex0/Super-Builders)（`android13-5.15/ReSukiSU`） |
 | Baseband-guard | ✅ | ✅ | [vc-teahouse/Baseband-guard](https://github.com/vc-teahouse/Baseband-guard) |
 | Re:Kernel | ✅ | ✅ | 内置 `drivers/rekernel` |
 | Wild 性能补丁 | ✅ | ✅ | [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) |
-| NTSync（Wine/Proton） | ✅ | ✅ | Linux mainline ³ |
-| Droidspaces（容器） | ✅ | ✅ | mainline 配置 + KABI 补丁 ³ |
+| NTSync（Wine/Proton） | ✅ | ✅ | Linux mainline ² |
+| Droidspaces（容器） | ✅ | ✅ | mainline 配置 + KABI 补丁 ² |
 | Unicode 绕过修复 | ✅ | ✅ | WildKernels |
 | NTFS3（+LZX/XPRESS） | ✅ | ✅ | mainline |
 | zram 默认 lz4 | ✅ | ✅ | defconfig |
@@ -90,11 +90,10 @@ AnyKernel3 zip 保持 `do.devicecheck=1`：拒绝刷入非 SM8550 机型（如 S
 | 完整 tmpfs（ACL/XATTR/INODE64） | ✅ | ✅ | config |
 | IPv6 NAT 隐藏 | ✅ | ✅ | 内置 `config_data` 钩子 |
 | 三星安全栈禁用 | ✅ | ✅ | defconfig 覆盖 |
-| `gki_ptrace` 信息泄漏修复 | ✅ | ✅ | upstream 修复 ³ |
+| `gki_ptrace` 信息泄漏修复 | ✅ | ✅ | upstream 修复 ² |
 
 ¹ `lkm` 模式关闭 SUSFS：`fs/susfs.c` 引用了仅在 `CONFIG_KSU=y` 时才链接的 `ksu_*` 符号。
-² `KPM` 依赖 KSU，纯 `lkm` 内核无法启用。
-³ 标 mainline/upstream 的特性源自 Linux 上游，并非 Wild 首创；构建时我们从 [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) 取**已适配到本 GKI 版本**的 backport，省去自行回合的工作。真正属于 Wild 的是上面「Wild 性能补丁」那一行（其自有的性能/降噪调优集）。
+² 标 mainline/upstream 的特性源自 Linux 上游，并非 Wild 首创；构建时我们从 [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) 取**已适配到本 GKI 版本**的 backport，省去自行回合的工作。真正属于 Wild 的是上面「Wild 性能补丁」那一行（其自有的性能/降噪调优集）。
 
 > `lkm` 模式产出的 `Image` 是真正干净的（零 `ksu_` 字符串）；KernelSU 管理器在刷入时给 `init_boot` 打补丁，运行时用 kprobes/kallsyms 注入未改动的 vmlinux。
 
@@ -138,7 +137,7 @@ AnyKernel3 zip（由 scripts/build/pack_anykernel.sh 生成，命名 SM8550_<tag
 
 - 较新的 Linux（Ubuntu 22.04+ 实测；WSL2 可用）。
 - 约 10 GB 空闲磁盘（源码 + 工具链 + 产物）。
-- 联网：工具链（`prebuilts/`）、ReSukiSU、SUSFS、Wild 补丁等均按需下载。
+- 联网：工具链（`prebuilts/`）、ReSukiSU、SUSFS、ZeroMount、Wild 补丁等均按需下载。
 - 标准内核编译依赖：
 
   ```bash
@@ -160,6 +159,8 @@ AnyKernel3 zip（由 scripts/build/pack_anykernel.sh 生成，命名 SM8550_<tag
 | `USE_CCACHE` | `1` | 设 `0` 关闭 ccache |
 | `BUILD_NUM` | 随机 | 固定版本号里的 `abogki` 编号（复现某次发布） |
 | `APPLY_SUSFS` | `1`（lkm 强制 `0`） | SUSFS 隐藏钩子（需 KSU） |
+| `APPLY_ZEROMOUNT` | `1`（lkm 跳过） | ZeroMount 挂载隐藏钩子（跟随 SUSFS） |
+| `SUPER_BUILDERS_PIN` | 见脚本 | 覆盖 Super-Builders 的 ZeroMount patch commit |
 | `APPLY_BBG` | `1` | Baseband-guard |
 | `APPLY_ZRAM` | `1` | zram 默认压缩器切 lz4 |
 | `APPLY_BBR` | `1` | BBR 拥塞控制 |
@@ -174,7 +175,7 @@ AnyKernel3 zip（由 scripts/build/pack_anykernel.sh 生成，命名 SM8550_<tag
 
 ## 🔐 安全与硬化
 
-- `resukisu` 构建会**禁用**三星 Knox 安全栈（UH / RKP / KDP / DEFEX / INTEGRITY / FIVE），因为它们会主动对抗内核级 root。仅在编译**非 root** 内核时才应重新启用。
+- `scripts/build/build.sh` 会**禁用**三星 Knox 安全栈（UH / RKP / KDP / DEFEX / INTEGRITY / FIVE），因为它们会主动对抗内核级 root。当前两个模式都会应用这组构建期覆盖。
 - 与 sm8650/sm8750 不同，SM8550 **保留** `HUGEPAGE_POOL` 开启：三星 5.15 的 `mm/kzerod.c` 在 `-Werror` 下依赖它，关掉会因未用函数报错。
 - SUSFS / Unicode 修复 / IPv6 NAT 隐藏共同压制常见的 root 检测面。
 
@@ -191,7 +192,7 @@ AnyKernel3 zip（由 scripts/build/pack_anykernel.sh 生成，命名 SM8550_<tag
 GPL-2.0。本树派生自：
 
 - **三星** `kernel_samsung_sm8550-common`（android13-5.15）—— 全部三星驱动/HAL 版权归三星所有，GPL-2.0。
-- **ReSukiSU / KernelSU**、**SukiSU KPM**、**SUSFS**（ShirkNeko）、**WildKernels** 补丁集、**Baseband-guard**（vc-teahouse）、**Re:Kernel** —— 各自遵循其许可。
+- **ReSukiSU / KernelSU**、**SUSFS**（ShirkNeko）、**ZeroMount**（Super-Builders）、**WildKernels** 补丁集、**Baseband-guard**（vc-teahouse）、**Re:Kernel** —— 各自遵循其许可。
 
 本仓库自身的贡献是 mode-driven 构建系统、特性集成与 SM8550 全机型适配。完整溯源见 [`CREDITS-LINEAGE.md`](CREDITS-LINEAGE.md)。这是一个**不点 Fork 按钮的下游树**，每个组件仍受其自身许可约束。
 
@@ -218,7 +219,7 @@ A unified Linux kernel tree for **all Samsung Galaxy devices on the SM8550 platf
 
 - 🔓 **Built-in root** — ReSukiSU (KernelSU) compiled into the kernel (`resukisu` mode); or a clean `lkm` mode where root is injected at flash time.
 - 🫥 **SUSFS hiding** — hides root / mounts / paths from detection.
-- 🧩 **KPM** — SukiSU kernel patch module ("核心") support.
+- 🧭 **ZeroMount** — narrows the mount-detection surface together with SUSFS.
 - 📡 **Baseband-guard** — LSM-level protection of modem / vbmeta / dtbo from any root user.
 - 🔔 **Re:Kernel** — built in; foreground/background and network event notifications.
 - ⚡ **Full Wild performance patch set** — F2FS/ext4 tuning, mm & scheduler tweaks, wakeup/power optimizations, logspam silencing.
@@ -248,7 +249,7 @@ A unified Linux kernel tree for **all Samsung Galaxy devices on the SM8550 platf
 | Branch | Default | Notes |
 |---|---|---|
 | `main` | **LKM** | No preinstalled root; the KernelSU LKM is built but you decide whether to load it. |
-| `resukisu` | **ReSukiSU** | Built-in root via [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU), with SUSFS / KPM / Baseband-guard and the full set on by default. |
+| `resukisu` | **ReSukiSU** | Built-in root via [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU), with SUSFS / ZeroMount / Baseband-guard and the full set on by default. |
 
 Either mode works on either branch — the branch only sets the default. The default comes from the `.kernel_build_mode` marker and can be overridden on the command line.
 
@@ -258,12 +259,12 @@ Either mode works on either branch — the branch only sets the default. The def
 |---|:---:|:---:|---|
 | ReSukiSU (KernelSU) | built-in | flash-time | ReSukiSU/ReSukiSU |
 | SUSFS | ✅ | ❌¹ | ShirkNeko/susfs4ksu (`gki-android13-5.15`) |
-| KPM | ✅ | ❌² | bundled `patch_linux` |
+| ZeroMount | ✅ | ❌¹ | Enginex0/Super-Builders (`android13-5.15/ReSukiSU`) |
 | Baseband-guard | ✅ | ✅ | vc-teahouse/Baseband-guard |
 | Re:Kernel | ✅ | ✅ | in-tree `drivers/rekernel` |
 | Wild perf patches | ✅ | ✅ | WildKernels/kernel_patches |
-| NTSync | ✅ | ✅ | Linux mainline ³ |
-| Droidspaces | ✅ | ✅ | mainline configs + KABI shim ³ |
+| NTSync | ✅ | ✅ | Linux mainline ² |
+| Droidspaces | ✅ | ✅ | mainline configs + KABI shim ² |
 | Unicode bypass fix | ✅ | ✅ | WildKernels |
 | NTFS3 (+LZX/XPRESS) | ✅ | ✅ | mainline |
 | zram default lz4 | ✅ | ✅ | config |
@@ -271,11 +272,10 @@ Either mode works on either branch — the branch only sets the default. The def
 | Full tmpfs (ACL/XATTR/INODE64) | ✅ | ✅ | config |
 | IPv6 NAT hidden | ✅ | ✅ | in-tree `config_data` hook |
 | Samsung security stack disabled | ✅ | ✅ | defconfig override |
-| `gki_ptrace` info-leak fix | ✅ | ✅ | upstream fix ³ |
+| `gki_ptrace` info-leak fix | ✅ | ✅ | upstream fix ² |
 
 ¹ SUSFS is off in `lkm`: `fs/susfs.c` references `ksu_*` symbols that only link with `CONFIG_KSU=y`.
-² `KPM` depends on KSU, so it cannot be enabled in a pure `lkm` kernel.
-³ Features marked mainline/upstream originate in upstream Linux, not Wild. At build time we fetch versions **already backported to this GKI tree** from [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) to avoid re-doing the backport. What is genuinely Wild's is the "Wild perf patches" row (their curated performance/logspam set).
+² Features marked mainline/upstream originate in upstream Linux, not Wild. At build time we fetch versions **already backported to this GKI tree** from [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) to avoid re-doing the backport. What is genuinely Wild's is the "Wild perf patches" row (their curated performance/logspam set).
 
 ## 🚀 Build
 
@@ -296,11 +296,11 @@ Prereqs: a recent Linux (Ubuntu 22.04+/WSL2), ~10 GB free disk, network on first
 
 ## ⚙️ Build switches
 
-Per-feature env toggles (all default `1`, SuSFS forced `0` in lkm): `APPLY_SUSFS`, `APPLY_BBG`, `APPLY_ZRAM`, `APPLY_BBR`, `APPLY_WILD_PERF`, `APPLY_UNICODE_FIX`, `APPLY_NTSYNC`, `APPLY_DROIDSPACES`, `APPLY_IPV6_NAT_FIX`, `APPLY_DISABLE_SAMSUNG_SEC`. Plus `KERNEL_TAG`, `JOBS`, `SKIP_TOOLCHAIN_SETUP`, `ZIP_AFTER`, `USE_CCACHE`, `BUILD_NUM`.
+Per-feature env toggles (all default `1`, SuSFS forced `0` in lkm): `APPLY_SUSFS`, `APPLY_ZEROMOUNT`, `APPLY_BBG`, `APPLY_ZRAM`, `APPLY_BBR`, `APPLY_WILD_PERF`, `APPLY_UNICODE_FIX`, `APPLY_NTSYNC`, `APPLY_DROIDSPACES`, `APPLY_IPV6_NAT_FIX`, `APPLY_DISABLE_SAMSUNG_SEC`. Plus `KERNEL_TAG`, `JOBS`, `SKIP_TOOLCHAIN_SETUP`, `ZIP_AFTER`, `USE_CCACHE`, `BUILD_NUM`, `SUPER_BUILDERS_PIN`.
 
 ## 🔐 Security & hardening
 
-- `resukisu` builds **disable** Samsung's Knox stack (UH / RKP / KDP / DEFEX / INTEGRITY / FIVE), which actively fights kernel-level root. Re-enable only for a non-rooted build.
+- `scripts/build/build.sh` disables Samsung's Knox stack (UH / RKP / KDP / DEFEX / INTEGRITY / FIVE) in both modes because it actively fights kernel-level root.
 - Unlike sm8650/sm8750, SM8550 **keeps** `HUGEPAGE_POOL` on: Samsung's 5.15 `mm/kzerod.c` needs it under `-Werror`.
 
 ## 📦 Flashing
@@ -309,4 +309,4 @@ Flash the zip from any SM8550 TWRP/OrangeFox, or drop the raw `Image` into your 
 
 ## 📜 Lineage & license
 
-GPL-2.0, derived from Samsung's `kernel_samsung_sm8550-common` (android13-5.15) plus ReSukiSU/KernelSU, SukiSU KPM, SUSFS (ShirkNeko), WildKernels, Baseband-guard (vc-teahouse) and Re:Kernel — each under its own license. This repo's own contribution is the mode-driven build system, feature integration and full-SM8550 device coverage. Full provenance: [`CREDITS-LINEAGE.md`](CREDITS-LINEAGE.md).
+GPL-2.0, derived from Samsung's `kernel_samsung_sm8550-common` (android13-5.15) plus ReSukiSU/KernelSU, SUSFS (ShirkNeko), ZeroMount (Super-Builders), WildKernels, Baseband-guard (vc-teahouse) and Re:Kernel — each under its own license. This repo's own contribution is the mode-driven build system, feature integration and full-SM8550 device coverage. Full provenance: [`CREDITS-LINEAGE.md`](CREDITS-LINEAGE.md).

@@ -89,9 +89,12 @@ SUSFS_REMOTE="${SUSFS_REMOTE_OVERRIDE:-https://github.com/ShirkNeko/susfs4ksu.gi
 SUSFS_BRANCH="${SUSFS_BRANCH:-gki-android13-5.15}"
 SUSFS_PIN="${SUSFS_PIN:-cb79a8b35e2387a98645024f432b8d0c7cab6625}"  # susfs4ksu gki-android13-5.15 tip (bumped 2026-06-03: SUS_PATH errno + mnt_id defaults)
 
+# ---- ZeroMount configuration ----
+SUPER_BUILDERS_REMOTE="${SUPER_BUILDERS_REMOTE:-https://github.com/Enginex0/Super-Builders.git}"
+SUPER_BUILDERS_PIN="${SUPER_BUILDERS_PIN:-c2cb71614868fe742cbffee2b6f3126523432673}" # android13-5.15 ReSukiSU ZeroMount
+
 # ---- helpers ----
 log()  { printf "\e[1;36m[*]\e[0m %s\n" "$*"; }
 ok()   { printf "\e[1;32m[+]\e[0m %s\n" "$*"; }
 warn() { printf "\e[1;33m[!]\e[0m %s\n" "$*"; }
 die()  { printf "\e[1;31m[x]\e[0m %s\n" "$*" >&2; exit 1; }
-

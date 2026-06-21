@@ -29,6 +29,8 @@
 #   APPLY_DROIDSPACES=1
 #                     IPC / NS / netfilter knobs for Linux containers.
 #                     Independent of KSU.
+#   APPLY_ZEROMOUNT=1 ZeroMount mount hiding hooks.
+#                     Applied only when SuSFS is enabled, so lkm mode skips it.
 #
 # Re-running the script is safe: each step checks whether the patch
 # was already applied before re-applying.
@@ -46,11 +48,13 @@ APPLY_WILD_PERF="${APPLY_WILD_PERF:-1}"
 APPLY_UNICODE_FIX="${APPLY_UNICODE_FIX:-1}"
 APPLY_NTSYNC="${APPLY_NTSYNC:-1}"
 APPLY_DROIDSPACES="${APPLY_DROIDSPACES:-1}"
+APPLY_ZEROMOUNT="${APPLY_ZEROMOUNT:-1}"
 APPLY_IPV6_NAT_FIX="${APPLY_IPV6_NAT_FIX:-1}"
 APPLY_DISABLE_SAMSUNG_SEC="${APPLY_DISABLE_SAMSUNG_SEC:-1}"
 
 CACHE_DIR="${PROJECT_ROOT}/.features_cache"
 SUSFS_REPO_DIR="${CACHE_DIR}/susfs4ksu"
+SUPER_BUILDERS_DIR="${CACHE_DIR}/super_builders"
 WILD_PATCHES_DIR="${CACHE_DIR}/wild_kernel_patches"
 mkdir -p "${CACHE_DIR}"
 
@@ -93,21 +97,9 @@ apply_susfs() {
   if [[ -f "${PROJECT_ROOT}/fs/namespace.c" ]] && ! grep -q "linux/susfs_def.h" "${PROJECT_ROOT}/fs/namespace.c"; then
     perl -0pi -e 's{#include <linux/mnt_idmapping.h>\n}{#include <linux/mnt_idmapping.h>\n#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT\n#include <linux/susfs_def.h>\n#endif\n}' "${PROJECT_ROOT}/fs/namespace.c" || true
   fi
-  # 2) selinuxfs: upstream ReSukiSU dropped the fake-selinux-status spoof symbols
-  #    that the susfs hunk references (fake_status, fake_status_initialize_key,
-  #    initialize_fake_status, ksu_selinux_hide_{enabled,running}); neutralise
-  #    every USE so vmlinux links (was: ld.lld undefined symbol
-  #    fake_status_initialize_key). Disables the fake-status spoof; rest of SuSFS
-  #    is unaffected. The extern declarations are left (harmless once unused).
-  if [[ -f "${PROJECT_ROOT}/security/selinux/selinuxfs.c" ]]; then
-    perl -0pi -e '
-      s/&& ksu_selinux_hide_enabled\)/&& 0)/g;
-      s/data = fake_status;/data = NULL;/g;
-      s/static_branch_unlikely\(&fake_status_initialize_key\) && !ret && !fake_status/0/g;
-      s/initialize_fake_status\(\);/(void)0;/g;
-      s/!ksu_selinux_hide_running/1/g;
-    ' "${PROJECT_ROOT}/security/selinux/selinuxfs.c" || true
-  fi
+  # Keep ReSukiSU/SUSFS SELinux hide intact. ReSukiSU detects the SUSFS
+  # manual hook via kernel/tools/susfs_compat.mk and exposes the needed
+  # fake_status symbols from feature/selinux_hide.c.
 
   # Report rejects (non-fatal) so the next iteration can add fixups, then clean.
   local rej; rej=$(find "${PROJECT_ROOT}" -name '*.rej' 2>/dev/null | wc -l)
@@ -120,6 +112,40 @@ apply_susfs() {
   log "  setresuid hook present: $(grep -c ksu_handle_setresuid "${PROJECT_ROOT}/kernel/sys.c" 2>/dev/null || echo 0)"
   find "${PROJECT_ROOT}" -name '*.rej' -delete 2>/dev/null || true
   find "${PROJECT_ROOT}" -name '*.orig' -delete 2>/dev/null || true
+}
+
+# ---------- ZeroMount ----------
+apply_zeromount() {
+  if [[ "${APPLY_SUSFS}" != "1" ]]; then
+    warn "ZeroMount skipped (lkm: pure kernel, SuSFS off)."
+    return
+  fi
+
+  log "ZeroMount: clone Super-Builders @ ${SUPER_BUILDERS_PIN} from ${SUPER_BUILDERS_REMOTE}..."
+  if [[ -d "${SUPER_BUILDERS_DIR}/.git" ]]; then
+    git -C "${SUPER_BUILDERS_DIR}" remote set-url origin "${SUPER_BUILDERS_REMOTE}"
+    git -C "${SUPER_BUILDERS_DIR}" fetch --quiet origin "${SUPER_BUILDERS_PIN}" 2>/dev/null || true
+  else
+    git clone --quiet "${SUPER_BUILDERS_REMOTE}" "${SUPER_BUILDERS_DIR}"
+  fi
+  git -C "${SUPER_BUILDERS_DIR}" checkout --quiet "${SUPER_BUILDERS_PIN}" 2>/dev/null \
+    || die "ZeroMount: cannot checkout Super-Builders pin ${SUPER_BUILDERS_PIN}"
+
+  local patch="${SUPER_BUILDERS_DIR}/android13-5.15/ReSukiSU/patches/60_zeromount-android13-5.15.patch"
+  [[ -f "${patch}" ]] || die "ZeroMount patch missing: ${patch}"
+
+  pushd "${PROJECT_ROOT}" >/dev/null
+  if patch -p1 -R --dry-run -F3 -s -f --no-backup-if-mismatch < "${patch}" >/dev/null 2>&1; then
+    warn "ZeroMount: already applied."
+  elif patch -p1 -F3 -s --no-backup-if-mismatch < "${patch}" >/dev/null 2>&1; then
+    ok "ZeroMount: patch applied."
+  else
+    find "${PROJECT_ROOT}" -name '*.rej' -print
+    die "ZeroMount: patch failed"
+  fi
+  find "${PROJECT_ROOT}" -name '*.rej' -delete 2>/dev/null || true
+  find "${PROJECT_ROOT}" -name '*.orig' -delete 2>/dev/null || true
+  popd >/dev/null
 }
 
 # ---------- BBG (Baseband-guard) ----------
@@ -519,8 +545,9 @@ EOF
 }
 
 main() {
-  log "Applying features (SuSFS=${APPLY_SUSFS} BBG=${APPLY_BBG} zram=${APPLY_ZRAM} BBR=${APPLY_BBR} WildPerf=${APPLY_WILD_PERF} Unicode=${APPLY_UNICODE_FIX} NTSync=${APPLY_NTSYNC} Droidspaces=${APPLY_DROIDSPACES} IPv6NATFix=${APPLY_IPV6_NAT_FIX} DisableSamsungSec=${APPLY_DISABLE_SAMSUNG_SEC})"
+  log "Applying features (SuSFS=${APPLY_SUSFS} ZeroMount=${APPLY_ZEROMOUNT} BBG=${APPLY_BBG} zram=${APPLY_ZRAM} BBR=${APPLY_BBR} WildPerf=${APPLY_WILD_PERF} Unicode=${APPLY_UNICODE_FIX} NTSync=${APPLY_NTSYNC} Droidspaces=${APPLY_DROIDSPACES} IPv6NATFix=${APPLY_IPV6_NAT_FIX} DisableSamsungSec=${APPLY_DISABLE_SAMSUNG_SEC})"
   [[ "${APPLY_SUSFS}" == "1" ]] && apply_susfs
+  [[ "${APPLY_ZEROMOUNT}" == "1" ]] && apply_zeromount
   [[ "${APPLY_BBG}" == "1" ]] && apply_bbg
   [[ "${APPLY_ZRAM}" == "1" ]] && apply_zram_lz4_neon
   [[ "${APPLY_BBR}" == "1" ]] && apply_bbr

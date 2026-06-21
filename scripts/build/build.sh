@@ -11,7 +11,7 @@
 #
 # Env overrides:
 #   KERNEL_TAG                           : banner suffix (default YuccaA)
-#   APPLY_SUSFS / APPLY_BBG / APPLY_ZRAM : 0|1, see apply_features.sh
+#   APPLY_SUSFS / APPLY_ZEROMOUNT / APPLY_BBG / APPLY_ZRAM : 0|1, see apply_features.sh
 #   JOBS                                 : parallel make jobs (default nproc)
 #   SKIP_TOOLCHAIN_SETUP=1               : trust prebuilts/ as-is
 #   ZIP_AFTER=0                          : skip auto-pack of AnyKernel3 zip
@@ -94,7 +94,7 @@ log "Yucca gate: token hash ${TOKEN_HASH_HEX:0:16}...${TOKEN_HASH_HEX: -16} burn
 #    fs/susfs.c references ksu_cred / ksu_is_manager() directly, which
 #    only resolve when CONFIG_KSU=y. With KSU disabled in lkm mode those
 #    symbols don't exist and vmlinux fails to link. Every other feature
-#    (BBG / Unicode fix / NTSync / Droidspaces / BBR / Wild perf / zram)
+#    (ZeroMount / BBG / Unicode fix / NTSync / Droidspaces / BBR / Wild perf / zram)
 #    is KSU-independent and is enabled in both modes.
 if [[ "${MODE}" == "lkm" ]]; then
   APPLY_SUSFS=0 "${SCRIPT_DIR}/apply_features.sh"
@@ -183,18 +183,18 @@ scripts/config --file "${OUT_DIR}/.config" \
   -e NETFILTER_XT_TARGET_HL
 
 # Mode feature configs, mirroring the sm8650/sm8750 trees:
-#   resukisu = KSU + SUSFS built in
+#   resukisu = KSU + SUSFS + ZeroMount built in
 #   lkm      = pure kernel, none of them (KSU injected at flash time by the
 #              manager app patching init_boot; SUSFS must be off).
 # Enabling KSU_SUSFS is what actually turns SuSFS on (apply_features.sh only
 # drops in the source + Kconfig). KPM was dropped: ReSukiSU upstream removed it
 # (PR #226, 2026-06-06), so there is no kernel-side KPM driver to enable.
 if [[ "${MODE}" == "lkm" ]]; then
-  log "lkm: disabling KSU / KSU_SUSFS (pure kernel; KSU injected at flash time)..."
-  scripts/config --file "${OUT_DIR}/.config" --disable KSU --disable KSU_SUSFS
+  log "lkm: disabling KSU / KSU_SUSFS / ZEROMOUNT (pure kernel; KSU injected at flash time)..."
+  scripts/config --file "${OUT_DIR}/.config" --disable KSU --disable KSU_SUSFS --disable ZEROMOUNT
 else
-  log "resukisu: enabling KSU / KSU_SUSFS..."
-  scripts/config --file "${OUT_DIR}/.config" --enable KSU --enable KSU_SUSFS
+  log "resukisu: enabling KSU / KSU_SUSFS / ZEROMOUNT..."
+  scripts/config --file "${OUT_DIR}/.config" --enable KSU --enable KSU_SUSFS --enable ZEROMOUNT
 fi
 
 make "${MAKE_ARGS[@]}" olddefconfig
@@ -256,7 +256,7 @@ ls -lh "${IMAGE}"
 # merged 2026-06-06). drivers/kernelsu is fetched from ReSukiSU @ main, so the
 # kernel-side KPM driver is gone; running patch_linux would only stamp an inert
 # patch onto the Image (and falsely log "KPM-patched"). resukisu mode now ships
-# KSU + SUSFS only. To bring KPM back, point fetch_kernelsu.sh at a KPM-capable
+# KSU + SUSFS + ZeroMount. To bring KPM back, point fetch_kernelsu.sh at a KPM-capable
 # source (e.g. SukiSU-Ultra) and restore the patch_linux step here.
 
 # 7. Optional: chain into AnyKernel3 packaging. Default on.
