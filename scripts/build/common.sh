@@ -87,7 +87,7 @@ KSU_DIR="${PROJECT_ROOT}/KernelSU"
 # tracking the moving branch HEAD.
 SUSFS_REMOTE="${SUSFS_REMOTE_OVERRIDE:-https://github.com/ShirkNeko/susfs4ksu.git}"
 SUSFS_BRANCH="${SUSFS_BRANCH:-gki-android13-5.15}"
-SUSFS_PIN="${SUSFS_PIN:-cb79a8b35e2387a98645024f432b8d0c7cab6625}"  # susfs4ksu gki-android13-5.15 tip (bumped 2026-06-03: SUS_PATH errno + mnt_id defaults)
+SUSFS_PIN="${SUSFS_PIN:-33b1d620eb218a8d64c828efff2b4dab1cb4742b}"  # susfs4ksu gki-android13-5.15 tip (bumped 2026-06-21)
 
 # ---- ZeroMount configuration ----
 SUPER_BUILDERS_REMOTE="${SUPER_BUILDERS_REMOTE:-https://github.com/Enginex0/Super-Builders.git}"
