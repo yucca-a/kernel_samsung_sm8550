@@ -30,7 +30,7 @@
 - 🧭 **ZeroMount** — 配合 SUSFS 进一步收敛挂载检测面。
 - 📡 **Baseband-guard** — LSM 级保护 modem / vbmeta / dtbo，任何 root 用户都改不动。
 - 🔔 **Re:Kernel** — 内置，提供前后台 / 网络事件通知，便于省电与后台管控。
-- ⚡ **Wild 全套性能补丁** — F2FS/ext4 调优、内存与调度优化、唤醒/功耗优化、日志降噪一整套。
+- ⚡ **Wild 精选性能补丁** — F2FS/ext4 调优、内存与调度优化及日志降噪；保留三星/GKI 原生 wakelock 与 s2idle 唤醒语义。
 - 🎮 **NTSync** — Windows NT 风格同步原语，跑 Wine / Proton 游戏更顺。
 - 📦 **Droidspaces 容器** — SYSVIPC / 命名空间 / netfilter 开关，可在 Android 里跑 Linux 容器、chroot。
 - 💾 **NTFS3 读写** — OTG 上的 NTFS 盘可读写（含 LZX/XPRESS 压缩）。
@@ -80,7 +80,7 @@ AnyKernel3 zip 保持 `do.devicecheck=1`：拒绝刷入非 SM8550 机型（如 S
 | ZeroMount | ✅ | ❌¹ | [Enginex0/Super-Builders](https://github.com/Enginex0/Super-Builders)（`android13-5.15/ReSukiSU`） |
 | Baseband-guard | ✅ | ✅ | [vc-teahouse/Baseband-guard](https://github.com/vc-teahouse/Baseband-guard) |
 | Re:Kernel | ✅ | ✅ | 内置 `drivers/rekernel` |
-| Wild 性能补丁 | ✅ | ✅ | [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) |
+| Wild 精选性能补丁 | ✅ | ✅ | [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) |
 | NTSync（Wine/Proton） | ✅ | ✅ | Linux mainline ² |
 | Droidspaces（容器） | ✅ | ✅ | mainline 配置 + KABI 补丁 ² |
 | Unicode 绕过修复 | ✅ | ✅ | WildKernels |
@@ -93,7 +93,7 @@ AnyKernel3 zip 保持 `do.devicecheck=1`：拒绝刷入非 SM8550 机型（如 S
 | `gki_ptrace` 信息泄漏修复 | ✅ | ✅ | upstream 修复 ² |
 
 ¹ `lkm` 模式关闭 SUSFS：`fs/susfs.c` 引用了仅在 `CONFIG_KSU=y` 时才链接的 `ksu_*` 符号。
-² 标 mainline/upstream 的特性源自 Linux 上游，并非 Wild 首创；构建时我们从 [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) 取**已适配到本 GKI 版本**的 backport，省去自行回合的工作。真正属于 Wild 的是上面「Wild 性能补丁」那一行（其自有的性能/降噪调优集）。
+² 标 mainline/upstream 的特性源自 Linux 上游，并非 Wild 首创；构建时我们从 [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) 取**已适配到本 GKI 版本**的 backport，省去自行回合的工作。真正属于 Wild 的是上面「Wild 精选性能补丁」那一行（其自有的性能/降噪调优集）。
 
 > `lkm` 模式产出的 `Image` 是真正干净的（零 `ksu_` 字符串）；KernelSU 管理器在刷入时给 `init_boot` 打补丁，运行时用 kprobes/kallsyms 注入未改动的 vmlinux。
 
@@ -166,7 +166,8 @@ Release tag 形如 `sm8550-resukisu-87c8b42`；zip 产物仍保持
 | `APPLY_BBG` | `1` | Baseband-guard |
 | `APPLY_ZRAM` | `1` | zram 默认压缩器切 lz4 |
 | `APPLY_BBR` | `1` | BBR 拥塞控制 |
-| `APPLY_WILD_PERF` | `1` | Wild 性能/降噪补丁 |
+| `APPLY_WILD_PERF` | `1` | Wild 精选性能/降噪补丁；不改 wakelock/s2idle 唤醒语义 |
+| `WILD_PATCHES_PIN` | `35fac8ee…` | 覆盖 Wild 补丁仓库的固定提交；取不到精确提交时构建中止 |
 | `APPLY_UNICODE_FIX` | `1` | Unicode 路径绕过修复 |
 | `APPLY_NTSYNC` | `1` | NTSync |
 | `APPLY_DROIDSPACES` | `1` | Linux 容器开关 |
@@ -224,7 +225,7 @@ A unified Linux kernel tree for **all Samsung Galaxy devices on the SM8550 platf
 - 🧭 **ZeroMount** — narrows the mount-detection surface together with SUSFS.
 - 📡 **Baseband-guard** — LSM-level protection of modem / vbmeta / dtbo from any root user.
 - 🔔 **Re:Kernel** — built in; foreground/background and network event notifications.
-- ⚡ **Full Wild performance patch set** — F2FS/ext4 tuning, mm & scheduler tweaks, wakeup/power optimizations, logspam silencing.
+- ⚡ **Curated Wild performance patches** — F2FS/ext4 tuning, memory and scheduler tweaks, and logspam reduction while preserving Samsung/GKI wakelock and s2idle wake semantics.
 - 🎮 **NTSync** — Windows NT-style sync primitives for Wine / Proton.
 - 📦 **Droidspaces** — IPC / namespace / netfilter knobs for Linux containers & chroots.
 - 💾 **NTFS3** — read/write NTFS (OTG), incl. LZX/XPRESS.
@@ -264,7 +265,7 @@ Either mode works on either branch — the branch only sets the default. The def
 | ZeroMount | ✅ | ❌¹ | Enginex0/Super-Builders (`android13-5.15/ReSukiSU`) |
 | Baseband-guard | ✅ | ✅ | vc-teahouse/Baseband-guard |
 | Re:Kernel | ✅ | ✅ | in-tree `drivers/rekernel` |
-| Wild perf patches | ✅ | ✅ | WildKernels/kernel_patches |
+| Curated Wild perf patches | ✅ | ✅ | WildKernels/kernel_patches |
 | NTSync | ✅ | ✅ | Linux mainline ² |
 | Droidspaces | ✅ | ✅ | mainline configs + KABI shim ² |
 | Unicode bypass fix | ✅ | ✅ | WildKernels |
@@ -277,7 +278,7 @@ Either mode works on either branch — the branch only sets the default. The def
 | `gki_ptrace` info-leak fix | ✅ | ✅ | upstream fix ² |
 
 ¹ SUSFS is off in `lkm`: `fs/susfs.c` references `ksu_*` symbols that only link with `CONFIG_KSU=y`.
-² Features marked mainline/upstream originate in upstream Linux, not Wild. At build time we fetch versions **already backported to this GKI tree** from [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) to avoid re-doing the backport. What is genuinely Wild's is the "Wild perf patches" row (their curated performance/logspam set).
+² Features marked mainline/upstream originate in upstream Linux, not Wild. At build time we fetch versions **already backported to this GKI tree** from [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) to avoid re-doing the backport. What is genuinely Wild's is the "Curated Wild perf patches" row (their performance/logspam set).
 
 ## 🚀 Build
 
@@ -298,7 +299,7 @@ Prereqs: a recent Linux (Ubuntu 22.04+/WSL2), ~10 GB free disk, network on first
 
 ## ⚙️ Build switches
 
-Per-feature env toggles (all default `1`, SuSFS forced `0` in lkm): `APPLY_SUSFS`, `APPLY_ZEROMOUNT`, `APPLY_BBG`, `APPLY_ZRAM`, `APPLY_BBR`, `APPLY_WILD_PERF`, `APPLY_UNICODE_FIX`, `APPLY_NTSYNC`, `APPLY_DROIDSPACES`, `APPLY_IPV6_NAT_FIX`, `APPLY_DISABLE_SAMSUNG_SEC`. Plus `KERNEL_TAG`, `JOBS`, `SKIP_TOOLCHAIN_SETUP`, `ZIP_AFTER`, `USE_CCACHE`, `BUILD_ID`, `SUPER_BUILDERS_PIN`.
+Per-feature env toggles (all default `1`, SuSFS forced `0` in lkm): `APPLY_SUSFS`, `APPLY_ZEROMOUNT`, `APPLY_BBG`, `APPLY_ZRAM`, `APPLY_BBR`, `APPLY_WILD_PERF`, `APPLY_UNICODE_FIX`, `APPLY_NTSYNC`, `APPLY_DROIDSPACES`, `APPLY_IPV6_NAT_FIX`, `APPLY_DISABLE_SAMSUNG_SEC`. Plus `KERNEL_TAG`, `JOBS`, `SKIP_TOOLCHAIN_SETUP`, `ZIP_AFTER`, `USE_CCACHE`, `BUILD_ID`, `SUPER_BUILDERS_PIN`, and the immutable Wild source override `WILD_PATCHES_PIN` (default `35fac8ee31035fb73a8b9301b50c2bdb4ff7feb7`; an unavailable pin aborts the build).
 
 ## 🔐 Security & hardening
 

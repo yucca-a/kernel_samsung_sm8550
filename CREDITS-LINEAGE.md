@@ -18,7 +18,7 @@ is used under its own licence terms.
 | [samsung-sm8550/kernel_samsung_sm8550-common](https://github.com/samsung-sm8550/kernel_samsung_sm8550-common) (branch `android13-5.15`) | GPL-2.0  | The entire kernel source tree as the initial snapshot. |
 
 The base snapshot was taken at upstream commit
-`18af2328f923 ("Merge branch 'android13-5.15-lts' of https://android.googlesource.com/kernel/common")`.
+`26ae68f5ff6f12d396b3b26d4ab5ef72e7332514 ("Merge branch 'android13-5.15-lts' of https://android.googlesource.com/kernel/common")`.
 
 ---
 
