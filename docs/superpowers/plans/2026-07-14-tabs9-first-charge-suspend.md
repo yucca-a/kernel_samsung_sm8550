@@ -266,6 +266,10 @@ Expected: the two stock calls are found and the two high-risk replacements are a
 
 **Step 1: Build `lkm` in its clean worktree**
 
+Recreate each build worktree from the implementation commit before invoking
+`build.sh`. The build entry point applies features itself, so it must not run on
+the source trees already modified by Task 4.
+
 ```bash
 ZIP_AFTER=0 USE_CCACHE=0 ./scripts/build/build.sh lkm
 test -s out/lkm/arch/arm64/boot/Image
