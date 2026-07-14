@@ -232,14 +232,14 @@ git worktree add --detach /home/yucca/.codex/worktrees/sm8550-tabs9-resukisu-ver
 Run in the corresponding worktree:
 
 ```bash
-./scripts/build/apply_features.sh lkm
+APPLY_SUSFS=0 APPLY_ZEROMOUNT=0 ./scripts/build/apply_features.sh
 ./scripts/build/test_feature_integration.sh
 ```
 
 and:
 
 ```bash
-./scripts/build/apply_features.sh resukisu
+./scripts/build/apply_features.sh
 ./scripts/build/test_feature_integration.sh
 ```
 
