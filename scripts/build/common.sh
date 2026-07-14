@@ -93,6 +93,9 @@ SUSFS_PIN="${SUSFS_PIN:-33b1d620eb218a8d64c828efff2b4dab1cb4742b}"  # susfs4ksu 
 SUPER_BUILDERS_REMOTE="${SUPER_BUILDERS_REMOTE:-https://github.com/Enginex0/Super-Builders.git}"
 SUPER_BUILDERS_PIN="${SUPER_BUILDERS_PIN:-c2cb71614868fe742cbffee2b6f3126523432673}" # android13-5.15 ReSukiSU ZeroMount
 
+# ---- Wild Kernels patch configuration ----
+WILD_PATCHES_PIN="${WILD_PATCHES_PIN:-35fac8ee31035fb73a8b9301b50c2bdb4ff7feb7}"
+
 # ---- helpers ----
 log()  { printf "\e[1;36m[*]\e[0m %s\n" "$*"; }
 ok()   { printf "\e[1;32m[+]\e[0m %s\n" "$*"; }

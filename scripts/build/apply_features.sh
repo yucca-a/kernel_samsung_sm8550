@@ -296,16 +296,39 @@ EOF
   ok "BBR enabled."
 }
 
-# ---------- Wild Kernels: common perf + logspam patches ----------
-apply_wild_perf() {
-  log "Wild perf: cloning kernel_patches from WildKernels GitHub..."
+# ---------- Wild Kernels patch source ----------
+prepare_wild_patches() {
+  log "Wild patches: fetching kernel_patches @ ${WILD_PATCHES_PIN}..."
   if [[ -d "${WILD_PATCHES_DIR}/.git" ]]; then
-    git -C "${WILD_PATCHES_DIR}" fetch --all --prune
-    git -C "${WILD_PATCHES_DIR}" reset --hard origin/HEAD
+    if git -C "${WILD_PATCHES_DIR}" remote get-url origin >/dev/null 2>&1; then
+      git -C "${WILD_PATCHES_DIR}" remote set-url origin \
+        https://github.com/WildKernels/kernel_patches.git
+    else
+      git -C "${WILD_PATCHES_DIR}" remote add origin \
+        https://github.com/WildKernels/kernel_patches.git
+    fi
   else
-    git clone --depth=1 https://github.com/WildKernels/kernel_patches.git "${WILD_PATCHES_DIR}"
+    mkdir -p "${WILD_PATCHES_DIR}"
+    git -C "${WILD_PATCHES_DIR}" init --quiet
+    git -C "${WILD_PATCHES_DIR}" remote add origin \
+      https://github.com/WildKernels/kernel_patches.git
   fi
 
+  git -C "${WILD_PATCHES_DIR}" fetch --quiet --depth=1 origin \
+    "${WILD_PATCHES_PIN}" \
+    || die "Wild patches: cannot fetch pin ${WILD_PATCHES_PIN}"
+  git -C "${WILD_PATCHES_DIR}" checkout --quiet --detach FETCH_HEAD \
+    || die "Wild patches: cannot checkout pin ${WILD_PATCHES_PIN}"
+
+  local resolved
+  resolved="$(git -C "${WILD_PATCHES_DIR}" rev-parse HEAD)"
+  [[ "${resolved}" == "${WILD_PATCHES_PIN}" ]] \
+    || die "Wild patches: resolved ${resolved}, expected ${WILD_PATCHES_PIN}"
+  ok "Wild patches: pinned at ${resolved}."
+}
+
+# ---------- Wild Kernels: common perf + logspam patches ----------
+apply_wild_perf() {
   # Curated patch set validated against Samsung android13-5.15.
   # Skipped on purpose:
   #   silence_system_logspam.patch       printk.c fuzz mismatch
@@ -315,6 +338,8 @@ apply_wild_perf() {
   #                                      arch/arm64/lib/memcmp.S
   #   re_write_limitation_scaling_min_freq.patch  superseded
   #   use_unlikely_wrap_cpufreq.patch    cpufreq core differs in 5.15
+  #   add_timeout_wakelocks_globally.patch   truncates indefinite wakelocks to 500 ms
+  #   avoid_extra_s2idle_wake_attempts.patch can suppress later Samsung wake events
   local patches=(
     # logspam
     silence_irq_cpu_logspam.patch
@@ -337,8 +362,6 @@ apply_wild_perf() {
     #   cpu_lp_mask / cpu_perf_mask which only exist on OnePlus
     #   kernels (Samsung has no Little/Big CPU mask split).
     # power management
-    add_timeout_wakelocks_globally.patch
-    avoid_extra_s2idle_wake_attempts.patch
     minimise_wakeup_time.patch
     reduce_freeze_timeout.patch
     reduce_pci_pme_wakeups.patch
@@ -386,11 +409,6 @@ apply_wild_perf() {
 # be used to mask /sbin/su etc. against root detectors. Pairs nicely
 # with SuSFS.
 apply_unicode_fix() {
-  if [[ ! -d "${WILD_PATCHES_DIR}/.git" ]]; then
-    log "Unicode fix: cloning kernel_patches..."
-    git clone --depth=1 https://github.com/WildKernels/kernel_patches.git "${WILD_PATCHES_DIR}"
-  fi
-
   local kv_major kv_minor variant
   kv_major=$(awk '/^VERSION = / {print $3}' "${PROJECT_ROOT}/Makefile")
   kv_minor=$(awk '/^PATCHLEVEL = / {print $3}' "${PROJECT_ROOT}/Makefile")
@@ -481,10 +499,6 @@ PY
 # run inside Android, and applies the ABI-padding patch required by
 # CONFIG_SYSVIPC=y on a GKI tree. LKM-friendly.
 apply_droidspaces() {
-  if [[ ! -d "${WILD_PATCHES_DIR}/.git" ]]; then
-    log "Droidspaces: cloning kernel_patches..."
-    git clone --depth=1 https://github.com/WildKernels/kernel_patches.git "${WILD_PATCHES_DIR}"
-  fi
   local kabi="${WILD_PATCHES_DIR}/common/droidspaces/fix_sysvipc_kabi_6_7_8.patch"
   [[ -f "${kabi}" ]] || { warn "Droidspaces: kabi patch missing"; return; }
 
@@ -608,6 +622,11 @@ EOF
 
 main() {
   log "Applying features (SuSFS=${APPLY_SUSFS} ZeroMount=${APPLY_ZEROMOUNT} BBG=${APPLY_BBG} zram=${APPLY_ZRAM} BBR=${APPLY_BBR} WildPerf=${APPLY_WILD_PERF} Unicode=${APPLY_UNICODE_FIX} NTSync=${APPLY_NTSYNC} Droidspaces=${APPLY_DROIDSPACES} IPv6NATFix=${APPLY_IPV6_NAT_FIX} DisableSamsungSec=${APPLY_DISABLE_SAMSUNG_SEC})"
+  if [[ "${APPLY_WILD_PERF}" == "1" ||
+        "${APPLY_UNICODE_FIX}" == "1" ||
+        "${APPLY_DROIDSPACES}" == "1" ]]; then
+    prepare_wild_patches
+  fi
   [[ "${APPLY_SUSFS}" == "1" ]] && apply_susfs
   [[ "${APPLY_ZEROMOUNT}" == "1" ]] && apply_zeromount
   [[ "${APPLY_BBG}" == "1" ]] && apply_bbg
