@@ -479,6 +479,7 @@ static void
 ice_prepare_for_reset(struct ice_pf *pf)
 {
 	struct ice_hw *hw = &pf->hw;
+	struct ice_vsi *vsi = ice_get_main_vsi(pf);
 	unsigned int i;
 
 	/* already prepared for reset */
@@ -494,6 +495,9 @@ ice_prepare_for_reset(struct ice_pf *pf)
 	/* Disable VFs until reset is completed */
 	ice_for_each_vf(pf, i)
 		ice_set_vf_state_qs_dis(&pf->vf[i]);
+
+	if (vsi && vsi->netdev)
+		netif_device_detach(vsi->netdev);
 
 	/* clear SW filtering DB */
 	ice_clear_hw_tbls(hw);
@@ -4944,6 +4948,16 @@ static int __maybe_unused ice_resume(struct device *dev)
 	/* Restart the service task */
 	mod_timer(&pf->serv_tmr, round_jiffies(jiffies + pf->serv_tmr_period));
 
+	/* Best-effort wait for the scheduled reset to finish so that the
+	 * device is operational before returning. Without this, userspace
+	 * (e.g. NetworkManager) may try to open the net device while the
+	 * asynchronous reset is still in progress, hitting -EBUSY.
+	 */
+	ret = ice_wait_for_reset(pf, secs_to_jiffies(10));
+	if (ret)
+		dev_err(dev, "Wait for reset timed out (10s) during resume: %d\n",
+			ret);
+
 	return 0;
 }
 #endif /* CONFIG_PM */
@@ -6417,6 +6431,7 @@ static void ice_update_pf_netdev_link(struct ice_pf *pf)
  */
 static void ice_rebuild(struct ice_pf *pf, enum ice_reset_req reset_type)
 {
+	struct ice_vsi *vsi = ice_get_main_vsi(pf);
 	struct device *dev = ice_pf_to_dev(pf);
 	struct ice_hw *hw = &pf->hw;
 	enum ice_status ret;
@@ -6537,6 +6552,9 @@ static void ice_rebuild(struct ice_pf *pf, enum ice_reset_req reset_type)
 
 		ice_rebuild_arfs(pf);
 	}
+
+	if (vsi && vsi->netdev)
+		netif_device_attach(vsi->netdev);
 
 	ice_update_pf_netdev_link(pf);
 

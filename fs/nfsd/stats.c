@@ -134,7 +134,10 @@ int nfsd_stat_init(void)
 	if (err)
 		return err;
 
-	svc_proc_register(&init_net, &nfsd_svcstats, &nfsd_proc_ops);
+	if (!svc_proc_register(&init_net, &nfsd_svcstats, &nfsd_proc_ops)) {
+		nfsd_stat_counters_destroy();
+		return -ENOMEM;
+	}
 
 	return 0;
 }

@@ -3523,6 +3523,8 @@ ctnetlink_parse_expect_nat(const struct nlattr *attr,
 
 	exp->saved_addr = nat_tuple.src.u3;
 	exp->saved_proto = nat_tuple.src.u;
+	if (ntohl(nla_get_be32(tb[CTA_EXPECT_NAT_DIR])) > IP_CT_DIR_REPLY)
+		return -EINVAL;
 	exp->dir = ntohl(nla_get_be32(tb[CTA_EXPECT_NAT_DIR]));
 
 	return 0;

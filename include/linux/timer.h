@@ -188,6 +188,13 @@ extern void add_timer(struct timer_list *timer);
 
 extern int try_to_del_timer_sync(struct timer_list *timer);
 extern int del_timer_sync(struct timer_list *timer);
+extern int timer_shutdown(struct timer_list *timer);
+extern int timer_shutdown_sync(struct timer_list *timer);
+
+static inline int timer_delete_sync(struct timer_list *timer)
+{
+	return del_timer_sync(timer);
+}
 
 extern void init_timers(void);
 struct hrtimer;

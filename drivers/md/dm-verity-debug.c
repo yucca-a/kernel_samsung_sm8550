@@ -244,6 +244,7 @@ static void print_block_data(unsigned long long blocknr, unsigned char *data_to_
 int verity_handle_err_hex_debug(struct dm_verity *v, enum verity_block_type type,
         unsigned long long block, struct dm_verity_io *io, struct bvec_iter *iter)
 {
+    int ce;
     char verity_env[DM_VERITY_ENV_LENGTH];
     char *envp[] = { verity_env, NULL };
     const char *type_str = "";
@@ -271,10 +272,11 @@ int verity_handle_err_hex_debug(struct dm_verity *v, enum verity_block_type type
     }
 #endif
 
-    if (v->corrupted_errs >= DM_VERITY_MAX_CORRUPTED_ERRS)
-        goto out;
-
-    v->corrupted_errs++;
+    ce = atomic_read(&v->corrupted_errs);
+    do {
+	if (ce >= DM_VERITY_MAX_CORRUPTED_ERRS)
+		goto out;
+    } while (!atomic_try_cmpxchg(&v->corrupted_errs, &ce, ce + 1));
 
     switch (type) {
         case DM_VERITY_BLOCK_TYPE_DATA:
@@ -320,7 +322,7 @@ int verity_handle_err_hex_debug(struct dm_verity *v, enum verity_block_type type
 
     panic("dmv corrupt");
 
-    if (v->corrupted_errs == DM_VERITY_MAX_CORRUPTED_ERRS)
+    if (ce + 1 == DM_VERITY_MAX_CORRUPTED_ERRS)
         DMERR("%s: reached maximum errors", v->data_dev->name);
 
     snprintf(verity_env, DM_VERITY_ENV_LENGTH, "%s=%d,%llu",

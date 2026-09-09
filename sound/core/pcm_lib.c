@@ -1877,19 +1877,23 @@ static int wait_for_avail(struct snd_pcm_substream *substream,
 		if (substream->wait_time) {
 			wait_time = substream->wait_time;
 		} else {
+#if IS_ENABLED(CONFIG_SND_SOC_SAMSUNG_AUDIO)
 			wait_time = 10;
-
 			if (runtime->rate) {
-				long t = runtime->period_size * 2 /
-					 runtime->rate;
+				long t = runtime->period_size * 2 / runtime->rate;
 				wait_time = max(t, wait_time);
 			}
-#if IS_ENABLED(CONFIG_SND_SOC_SAMSUNG_AUDIO)
-			wait_time = msecs_to_jiffies(wait_time * 100);
+			wait_time *= 100;
 #else
-			wait_time = msecs_to_jiffies(wait_time * 1000);
+			wait_time = 100;
+
+			if (runtime->rate) {
+				long t = runtime->buffer_size * 1100 / runtime->rate;
+				wait_time = max(t, wait_time);
+			}
 #endif
 		}
+		wait_time = msecs_to_jiffies(wait_time);
 	}
 
 	for (;;) {
@@ -1937,8 +1941,8 @@ static int wait_for_avail(struct snd_pcm_substream *substream,
 		}
 		if (!tout) {
 			pcm_dbg(substream->pcm,
-				"%s write error (DMA or IRQ trouble?)\n",
-				is_playback ? "playback" : "capture");
+				"%s timeout (DMA or IRQ trouble?)\n",
+				is_playback ? "playback write" : "capture read");
 			err = -EIO;
 			break;
 		}
