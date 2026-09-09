@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Set up ReSukiSU (KernelSU) from the UPSTREAM ReSukiSU/ReSukiSU repo via its
-# own kernel/setup.sh, tracking the configured ref (default: main). This is the
+# own kernel/setup.sh at the configured pinned commit. This is the
 # same source and mechanism the sm8650/sm8750 trees use. setup.sh clones
 # ReSukiSU into KernelSU/, checks out the ref, creates the drivers/kernelsu
 # symlink, and adds the Kconfig/Makefile entries (idempotent -- the entries are
@@ -15,7 +15,9 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
 cd "${PROJECT_ROOT}"
 
 log "Setting up ReSukiSU (upstream ReSukiSU/ReSukiSU @ ${RESUKISU_REF}) via setup.sh..."
-curl -LSs "${RESUKISU_SETUP}" | bash -s "${RESUKISU_REF}"
+curl -fLSs "${RESUKISU_SETUP}" | bash -s "${RESUKISU_REF}"
+[[ "$(git -C "${KSU_DIR}" rev-parse HEAD)" == "${RESUKISU_REF}" ]] \
+  || die "ReSukiSU revision mismatch after setup.sh"
 
 # Sanity: the drivers/kernelsu symlink must resolve to a real KernelSU tree.
 if [[ ! -e "${PROJECT_ROOT}/drivers/kernelsu/Kconfig" ]]; then

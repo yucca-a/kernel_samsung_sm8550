@@ -73,13 +73,12 @@ BUILDTOOLS_PATH_BIN="${TOOLCHAIN_ROOT}/build-tools/path/linux-x86"
 KERNEL_BUILD_TOOLS_BIN="${TOOLCHAIN_ROOT}/kernel-build-tools/linux-x86/bin"
 
 # ---- ReSukiSU (KernelSU) configuration ----
-# Use the UPSTREAM ReSukiSU/ReSukiSU setup.sh, tracking main -- same source
-# and mechanism as the sm8650/sm8750 trees (we previously pulled the
-# YuzakiKokuban fork at a pinned PR commit, which was inconsistent). setup.sh
+# Use the upstream setup.sh and sources from the same pinned commit.
+# This keeps all three SoC builds reproducible. setup.sh
 # clones ReSukiSU into KernelSU/ and wires drivers/kernelsu + Kconfig/Makefile
 # (those entries are already committed here, and setup.sh is idempotent).
-RESUKISU_SETUP="${RESUKISU_SETUP:-https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh}"
-RESUKISU_REF="${RESUKISU_REF:-main}"
+RESUKISU_REF="${RESUKISU_REF:-f1dd81dc96d7f3f6691e6ac8b50fba9ae8a2f17c}"
+RESUKISU_SETUP="${RESUKISU_SETUP:-https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/${RESUKISU_REF}/kernel/setup.sh}"
 KSU_DIR="${PROJECT_ROOT}/KernelSU"
 
 # ---- SuSFS configuration ----
@@ -87,7 +86,7 @@ KSU_DIR="${PROJECT_ROOT}/KernelSU"
 # tracking the moving branch HEAD.
 SUSFS_REMOTE="${SUSFS_REMOTE_OVERRIDE:-https://github.com/ShirkNeko/susfs4ksu.git}"
 SUSFS_BRANCH="${SUSFS_BRANCH:-gki-android13-5.15}"
-SUSFS_PIN="${SUSFS_PIN:-33b1d620eb218a8d64c828efff2b4dab1cb4742b}"  # susfs4ksu gki-android13-5.15 tip (bumped 2026-06-21)
+SUSFS_PIN="${SUSFS_PIN:-415e4143ee1dd557c54d2b3d94ef098e5d1236f4}"  # SUSFS v2.3.0, 2026-09-06
 
 # ---- ZeroMount configuration ----
 SUPER_BUILDERS_REMOTE="${SUPER_BUILDERS_REMOTE:-https://github.com/Enginex0/Super-Builders.git}"

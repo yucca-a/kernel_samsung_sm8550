@@ -1,0 +1,44 @@
+diff --git a/fs/exec.c b/fs/exec.c
+index a448a92..cea9aed 100644
+--- a/fs/exec.c
++++ b/fs/exec.c
+@@ -1903,7 +1903,6 @@ extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *ar
+ 			void *envp, int *flags);
+ extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr, void *argv,
+ 				void *envp, int *flags);
+-extern int ksu_install_su_fd(void);
+ #endif
+ 
+ static int do_execveat_common(int fd, struct filename *filename,
+@@ -1913,9 +1912,6 @@ static int do_execveat_common(int fd, struct filename *filename,
+ {
+ 	struct linux_binprm *bprm;
+ 	int retval;
+-#ifdef CONFIG_KSU_SUSFS
+-	bool is_su_session = false;
+-#endif // #ifdef CONFIG_KSU_SUSFS
+ 
+ 	if (IS_ERR(filename))
+ 		return PTR_ERR(filename);
+@@ -1926,9 +1922,9 @@ static int do_execveat_common(int fd, struct filename *filename,
+ 
+ 	if (static_branch_likely(&ksu_su_compat_enabled)) {
+ 		if (static_branch_unlikely(&susfs_is_sdcard_android_data_not_decrypted)) {
+-			is_su_session = !ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
++			ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
+ 		} else {
+-			is_su_session = !ksu_handle_execveat_sucompat(&fd, &filename, &argv, &envp, &flags);
++			ksu_handle_execveat_sucompat(&fd, &filename, &argv, &envp, &flags);
+ 		}
+ 	}
+ 
+@@ -2001,10 +1997,6 @@ static int do_execveat_common(int fd, struct filename *filename,
+ 	}
+ 
+ 	retval = bprm_execve(bprm, fd, filename, flags);
+-#ifdef CONFIG_KSU_SUSFS
+-	if (unlikely(is_su_session && retval >= 0))
+-		ksu_install_su_fd();
+-#endif // #ifdef CONFIG_KSU_SUSFS
+ out_free:
+ 	free_bprm(bprm);

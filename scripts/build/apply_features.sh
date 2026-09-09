@@ -14,12 +14,10 @@
 #   APPLY_BBG=1       Baseband-guard LSM. Independent of KSU. Protects
 #                     modem / vbmeta / dtbo from any root user.
 #   APPLY_ZRAM=1      Flip zram default compressor lzo-rle -> lz4
-#                     (defconfig only). LZ4 NEON in Wild's docs is a
-#                     misnomer; we use plain LZ4 which already runs
-#                     on ARM NEON code paths.
+#                     (defconfig only). This tree uses its existing
+#                     plain LZ4 implementation, updated with LTS.
 #   APPLY_BBR=1       BBRv1 TCP congestion control (defconfig only).
-#   APPLY_WILD_PERF=1 Wild Kernels common performance / logspam patches.
-#                     Independent of KSU.
+#   APPLY_PTRACE_FIX=1 Upstream ptrace information-leak fix.
 #   APPLY_UNICODE_FIX=1
 #                     fs/unicode/utf8-norm.c bug fix that prevents
 #                     non-printable codepoints from being used to
@@ -44,7 +42,7 @@ APPLY_SUSFS="${APPLY_SUSFS:-1}"
 APPLY_BBG="${APPLY_BBG:-1}"
 APPLY_ZRAM="${APPLY_ZRAM:-1}"
 APPLY_BBR="${APPLY_BBR:-1}"
-APPLY_WILD_PERF="${APPLY_WILD_PERF:-1}"
+APPLY_PTRACE_FIX="${APPLY_PTRACE_FIX:-1}"
 APPLY_UNICODE_FIX="${APPLY_UNICODE_FIX:-1}"
 APPLY_NTSYNC="${APPLY_NTSYNC:-1}"
 APPLY_DROIDSPACES="${APPLY_DROIDSPACES:-1}"
@@ -76,8 +74,8 @@ apply_susfs() {
   else
     git clone --quiet --branch "${SUSFS_BRANCH}" "${SUSFS_REMOTE}" "${SUSFS_REPO_DIR}"
   fi
-  git -C "${SUSFS_REPO_DIR}" checkout --quiet "${SUSFS_PIN}" 2>/dev/null \
-    || git -C "${SUSFS_REPO_DIR}" checkout --quiet "${SUSFS_BRANCH}"
+  git -C "${SUSFS_REPO_DIR}" checkout --quiet "${SUSFS_PIN}" \
+    || die "Cannot resolve pinned SUSFS revision ${SUSFS_PIN}"
 
   local kp="${SUSFS_REPO_DIR}/kernel_patches"
   local patch="${kp}/50_add_susfs_in_gki-android13-5.15.patch"
@@ -327,65 +325,9 @@ prepare_wild_patches() {
   ok "Wild patches: pinned at ${resolved}."
 }
 
-# ---------- Wild Kernels: common perf + logspam patches ----------
-apply_wild_perf() {
-  # Curated patch set validated against Samsung android13-5.15.
-  # Skipped on purpose:
-  #   silence_system_logspam.patch       printk.c fuzz mismatch
-  #   IPv6_NAT_FIX.patch                 conflict; we have qlenlen's
-  #                                      IPv6 NAT defconfig already
-  #   optimise_memcmp.patch              Hunk #2 fails on Samsung's
-  #                                      arch/arm64/lib/memcmp.S
-  #   re_write_limitation_scaling_min_freq.patch  superseded
-  #   use_unlikely_wrap_cpufreq.patch    cpufreq core differs in 5.15
-  #   add_timeout_wakelocks_globally.patch   truncates indefinite wakelocks to 500 ms
-  #   avoid_extra_s2idle_wake_attempts.patch can suppress later Samsung wake events
-  local patches=(
-    # logspam
-    silence_irq_cpu_logspam.patch
-    # F2FS tuning
-    f2fs_enlarge_min_fsync_blocks.patch
-    f2fs_reduce_congestion.patch
-    reduce_gc_thread_sleep_time.patch
-    # ext4 tuning
-    increase_ext4_default_commit_age.patch
-    # mm / mem operations
-    clear_page_16bytes_align.patch
-    file_struct_8bytes_align.patch
-    disable_cache_hot_buddy.patch
-    reduce_cache_pressure.patch
-    mem_opt_prefetch.patch
-    optimized_mem_operations.patch
-    int_sqrt.patch
-    # CPU / scheduling
-    #   add_limitation_scaling_min_freq.patch  — skip: references
-    #   cpu_lp_mask / cpu_perf_mask which only exist on OnePlus
-    #   kernels (Samsung has no Little/Big CPU mask split).
-    # power management
-    minimise_wakeup_time.patch
-    reduce_freeze_timeout.patch
-    reduce_pci_pme_wakeups.patch
-    # network
-    increase_sk_mem_packets.patch
-    force_tcp_nodelay.patch
-  )
-
+# ---------- Upstream ptrace hardening ----------
+apply_ptrace_fix() {
   pushd "${PROJECT_ROOT}" >/dev/null
-  for p in "${patches[@]}"; do
-    local file="${WILD_PATCHES_DIR}/common/${p}"
-    [[ -f "${file}" ]] || { warn "  missing: ${p}"; continue; }
-    # Reverse check first to know if already applied.
-    if patch -p1 -R --dry-run -F3 -s -f --no-backup-if-mismatch < "${file}" >/dev/null 2>&1; then
-      warn "  ↺ already applied: ${p}"
-      continue
-    fi
-    if patch -p1 -F3 -s --no-backup-if-mismatch < "${file}" >/dev/null 2>&1; then
-      ok "  + applied: ${p}"
-    else
-      warn "  ! skip (does not apply): ${p}"
-    fi
-  done
-
   # Ptrace hardening for 5.15: upstream ~5.16 ptrace-message threading + our
   # ptrace_message zeroing. Vendored in-repo (no Wild dependency for this one).
   local pf="${SCRIPT_DIR}/features/ptrace/gki_ptrace.patch"
@@ -401,7 +343,7 @@ apply_wild_perf() {
     warn "  missing: gki_ptrace.patch"
   fi
   popd >/dev/null
-  ok "Wild perf patches done."
+  ok "Ptrace hardening done."
 }
 
 # ---------- Wild Kernels: Unicode bypass fix ----------
@@ -620,19 +562,35 @@ EOF
   ok "disable Samsung sec: 7 configs disabled."
 }
 
+# ReSukiSU handles su compatibility itself and no longer has the SUSFS
+# post-exec install_su_fd API. Do not install an unrelated driver fd here.
+apply_compat_patch() {
+  local patch_file="${SCRIPT_DIR}/features/$1"
+  if /usr/bin/patch -p1 -R --dry-run --batch --fuzz=0 < "${patch_file}" >/dev/null 2>&1; then
+    return 0
+  fi
+  /usr/bin/patch -p1 --forward --batch --fuzz=0 --no-backup-if-mismatch < "${patch_file}" \
+    || die "Compatibility patch failed: $1"
+}
+
 main() {
-  log "Applying features (SuSFS=${APPLY_SUSFS} ZeroMount=${APPLY_ZEROMOUNT} BBG=${APPLY_BBG} zram=${APPLY_ZRAM} BBR=${APPLY_BBR} WildPerf=${APPLY_WILD_PERF} Unicode=${APPLY_UNICODE_FIX} NTSync=${APPLY_NTSYNC} Droidspaces=${APPLY_DROIDSPACES} IPv6NATFix=${APPLY_IPV6_NAT_FIX} DisableSamsungSec=${APPLY_DISABLE_SAMSUNG_SEC})"
-  if [[ "${APPLY_WILD_PERF}" == "1" ||
-        "${APPLY_UNICODE_FIX}" == "1" ||
+  log "Applying features (SuSFS=${APPLY_SUSFS} ZeroMount=${APPLY_ZEROMOUNT} BBG=${APPLY_BBG} zram=${APPLY_ZRAM} BBR=${APPLY_BBR} PtraceFix=${APPLY_PTRACE_FIX} Unicode=${APPLY_UNICODE_FIX} NTSync=${APPLY_NTSYNC} Droidspaces=${APPLY_DROIDSPACES} IPv6NATFix=${APPLY_IPV6_NAT_FIX} DisableSamsungSec=${APPLY_DISABLE_SAMSUNG_SEC})"
+  if [[ "${APPLY_UNICODE_FIX}" == "1" ||
         "${APPLY_DROIDSPACES}" == "1" ]]; then
     prepare_wild_patches
   fi
   [[ "${APPLY_SUSFS}" == "1" ]] && apply_susfs
   [[ "${APPLY_ZEROMOUNT}" == "1" ]] && apply_zeromount
+  if [[ "${APPLY_SUSFS}" == "1" ]]; then
+    apply_compat_patch resukisu-susfs-2.3.patch
+    if [[ "${APPLY_ZEROMOUNT}" == "1" ]]; then
+      apply_compat_patch zeromount-stat-c89.patch
+    fi
+  fi
   [[ "${APPLY_BBG}" == "1" ]] && apply_bbg
   [[ "${APPLY_ZRAM}" == "1" ]] && apply_zram_lz4_neon
   [[ "${APPLY_BBR}" == "1" ]] && apply_bbr
-  [[ "${APPLY_WILD_PERF}" == "1" ]] && apply_wild_perf
+  [[ "${APPLY_PTRACE_FIX}" == "1" ]] && apply_ptrace_fix
   [[ "${APPLY_UNICODE_FIX}" == "1" ]] && apply_unicode_fix
   [[ "${APPLY_NTSYNC}" == "1" ]] && apply_ntsync
   [[ "${APPLY_DROIDSPACES}" == "1" ]] && apply_droidspaces

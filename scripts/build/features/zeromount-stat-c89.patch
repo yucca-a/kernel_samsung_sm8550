@@ -1,0 +1,22 @@
+diff --git a/fs/stat.c b/fs/stat.c
+index c9af377..17fd32c 100644
+--- a/fs/stat.c
++++ b/fs/stat.c
+@@ -285,6 +285,7 @@ static int vfs_statx(int dfd, const char __user *filename, int flags,
+ 	unsigned lookup_flags = 0;
+ 	int error;
+ #ifdef CONFIG_KSU_SUSFS
++	struct filename *fname = NULL;
+ #ifdef CONFIG_ZEROMOUNT
+ 	/* Try ZeroMount hook for relative paths */
+ 	if (filename) {
+@@ -293,9 +294,6 @@ static int vfs_statx(int dfd, const char __user *filename, int flags,
+ 			return zm_ret;
+ 	}
+ #endif
+-
+-
+-	struct filename *fname = NULL;
+ #endif
+ 
+ 	if (flags & ~(AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT | AT_EMPTY_PATH |

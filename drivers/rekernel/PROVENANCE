@@ -1,0 +1,8 @@
+Source: https://github.com/Sakion-Team/Re-Kernel
+Commit: 5adec4896a549af60fab2ab59441a777551763b9
+Directory: LKM-Source (Re:Kernel 11.6)
+License: GPL-2.0
+
+Local integration: built-in composite object instead of obj-m; legacy raw
+Netlink is enabled by default to preserve the existing userspace protocol.
+Upstream Kconfig switches are wired to NETWORK_FILTER / LEGACY_NETLINK.

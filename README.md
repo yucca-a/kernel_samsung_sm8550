@@ -4,16 +4,22 @@
 
 # kernel_samsung_sm8550
 
+> 2026-09-09 更新：LTS 5.15.220；移除全部 Wild 性能/日志/唤醒调优。
+> 保留 BBR、ZRAM LZ4、Unicode、Droidspaces、ipset 等现有功能。
+> ReSukiSU 固定至 `f1dd81dc`，SuSFS 更新至 2.3.0，Re:Kernel 更新至 11.6（保留旧 Netlink 协议）。
+> ZeroMount 内核补丁源 `c2cb7161` 尚无更新，保留现有兼容修复。
+> ZRAM/LZ4 和 ipset 沿用本 LTS 系列的内核实现及修复；它们不是独立的用户态软件包。
+
 > 一套镜像通刷所有骁龙 8 Gen 2（SM8550 "Kalama"）三星设备的自定义 Android 内核。
 
 ![SoC](https://img.shields.io/badge/SoC-Snapdragon_8_Gen_2-0a7bbb)
 ![Android](https://img.shields.io/badge/Android-13-3ddc84)
-![Kernel](https://img.shields.io/badge/Linux-5.15.207-f6a500)
+![Kernel](https://img.shields.io/badge/Linux-5.15.220-f6a500)
 ![KMI](https://img.shields.io/badge/KMI-android13--5-9aa0a6)
 ![Root](https://img.shields.io/badge/Root-ReSukiSU%20%2B%20SUSFS%20%2B%20ZeroMount-c2185b)
 ![License](https://img.shields.io/badge/License-GPL--2.0-2962ff)
 
-基于三星 `kernel_samsung_sm8550-common`（android13-5.15）的统一内核树，面向 **SM8550 平台的全部三星 Galaxy 设备**，搭载 Android 13、Linux 5.15.207。
+基于三星 `kernel_samsung_sm8550-common`（android13-5.15）的统一内核树，面向 **SM8550 平台的全部三星 Galaxy 设备**，搭载 Android 13、Linux 5.15.220。
 
 **一份镜像、一个 zip、通刷每一台 Samsung SM8550 设备。** 编译出的 `Image` 与目标机型无关、逐字节一致；AnyKernel3 zip 内置下方所有 codename，单个 zip 即可刷入列表内任意机型。
 
@@ -30,7 +36,6 @@
 - 🧭 **ZeroMount** — 配合 SUSFS 进一步收敛挂载检测面。
 - 📡 **Baseband-guard** — LSM 级保护 modem / vbmeta / dtbo，任何 root 用户都改不动。
 - 🔔 **Re:Kernel** — 内置，提供前后台 / 网络事件通知，便于省电与后台管控。
-- ⚡ **Wild 精选性能补丁** — F2FS/ext4 调优、内存与调度优化及日志降噪；保留三星/GKI 原生 wakelock 与 s2idle 唤醒语义。
 - 🎮 **NTSync** — Windows NT 风格同步原语，跑 Wine / Proton 游戏更顺。
 - 📦 **Droidspaces 容器** — SYSVIPC / 命名空间 / netfilter 开关，可在 Android 里跑 Linux 容器、chroot。
 - 💾 **NTFS3 读写** — OTG 上的 NTFS 盘可读写（含 LZX/XPRESS 压缩）。
@@ -80,7 +85,6 @@ AnyKernel3 zip 保持 `do.devicecheck=1`：拒绝刷入非 SM8550 机型（如 S
 | ZeroMount | ✅ | ❌¹ | [Enginex0/Super-Builders](https://github.com/Enginex0/Super-Builders)（`android13-5.15/ReSukiSU`） |
 | Baseband-guard | ✅ | ✅ | [vc-teahouse/Baseband-guard](https://github.com/vc-teahouse/Baseband-guard) |
 | Re:Kernel | ✅ | ✅ | 内置 `drivers/rekernel` |
-| Wild 精选性能补丁 | ✅ | ✅ | [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) |
 | NTSync（Wine/Proton） | ✅ | ✅ | Linux mainline ² |
 | Droidspaces（容器） | ✅ | ✅ | mainline 配置 + KABI 补丁 ² |
 | Unicode 绕过修复 | ✅ | ✅ | WildKernels |
@@ -93,7 +97,7 @@ AnyKernel3 zip 保持 `do.devicecheck=1`：拒绝刷入非 SM8550 机型（如 S
 | `gki_ptrace` 信息泄漏修复 | ✅ | ✅ | upstream 修复 ² |
 
 ¹ `lkm` 模式关闭 SUSFS：`fs/susfs.c` 引用了仅在 `CONFIG_KSU=y` 时才链接的 `ksu_*` 符号。
-² 标 mainline/upstream 的特性源自 Linux 上游，并非 Wild 首创；构建时我们从 [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) 取**已适配到本 GKI 版本**的 backport，省去自行回合的工作。真正属于 Wild 的是上面「Wild 精选性能补丁」那一行（其自有的性能/降噪调优集）。
+² NTSync、Droidspaces 等已有功能继续保留；Wild 补丁仓库仅用于 Unicode 修复和现有 Droidspaces KABI 补丁，不再应用性能、日志或唤醒调优。
 
 > `lkm` 模式产出的 `Image` 是真正干净的（零 `ksu_` 字符串）；KernelSU 管理器在刷入时给 `init_boot` 打补丁，运行时用 kprobes/kallsyms 注入未改动的 vmlinux。
 
@@ -130,8 +134,8 @@ AnyKernel3 zip（由 scripts/build/pack_anykernel.sh 生成，命名 SM8550_<tag
 ```
 
 Release tag 形如 `sm8550-resukisu-87c8b42`；zip 产物仍保持
-`SM8550_resukisu_5.15.207_0614.zip` 这类命名。内核版本号形如
-`5.15.207-android13-5-YuccaA-87c8b42-4k`，其中 `87c8b42` 是源码短 commit。
+`SM8550_resukisu_5.15.220_0614.zip` 这类命名。内核版本号形如
+`5.15.220-android13-5-YuccaA-87c8b42-4k`，其中 `87c8b42` 是源码短 commit。
 
 > ⚠️ **工具链与 LTO 不能乱换。** SM8550 必须用三星 `clang-r450784e`（android13-5.15 配套的那版）—— 新的 `clang-r510928` 能编过但**不开机**。LTO 必须用 **ThinLTO**：FULL LTO 会把 16G 的 CI runner OOM 掉，而完全关 LTO 会连带丢掉 CFI、同样产出**不开机**的镜像。脚本已自动选好，独立编译时也会自动下载 r450784e。
 
@@ -166,7 +170,6 @@ Release tag 形如 `sm8550-resukisu-87c8b42`；zip 产物仍保持
 | `APPLY_BBG` | `1` | Baseband-guard |
 | `APPLY_ZRAM` | `1` | zram 默认压缩器切 lz4 |
 | `APPLY_BBR` | `1` | BBR 拥塞控制 |
-| `APPLY_WILD_PERF` | `1` | Wild 精选性能/降噪补丁；不改 wakelock/s2idle 唤醒语义 |
 | `WILD_PATCHES_PIN` | `35fac8ee…` | 覆盖 Wild 补丁仓库的固定提交；取不到精确提交时构建中止 |
 | `APPLY_UNICODE_FIX` | `1` | Unicode 路径绕过修复 |
 | `APPLY_NTSYNC` | `1` | NTSync |
@@ -210,7 +213,7 @@ GPL-2.0。本树派生自：
 
 > One image flashes every Snapdragon 8 Gen 2 (SM8550 "Kalama") Samsung device.
 
-A unified Linux kernel tree for **all Samsung Galaxy devices on the SM8550 platform**, running Android 13 on Linux 5.15.207, based on Samsung's `kernel_samsung_sm8550-common` (android13-5.15).
+A unified Linux kernel tree for **all Samsung Galaxy devices on the SM8550 platform**, running Android 13 on Linux 5.15.220, based on Samsung's `kernel_samsung_sm8550-common` (android13-5.15).
 
 **One image, one zip, every Samsung SM8550 device.** The compiled `Image` is byte-identical regardless of target device; the AnyKernel3 zip lists every codename below, so a single zip flashes any of them.
 
@@ -225,7 +228,6 @@ A unified Linux kernel tree for **all Samsung Galaxy devices on the SM8550 platf
 - 🧭 **ZeroMount** — narrows the mount-detection surface together with SUSFS.
 - 📡 **Baseband-guard** — LSM-level protection of modem / vbmeta / dtbo from any root user.
 - 🔔 **Re:Kernel** — built in; foreground/background and network event notifications.
-- ⚡ **Curated Wild performance patches** — F2FS/ext4 tuning, memory and scheduler tweaks, and logspam reduction while preserving Samsung/GKI wakelock and s2idle wake semantics.
 - 🎮 **NTSync** — Windows NT-style sync primitives for Wine / Proton.
 - 📦 **Droidspaces** — IPC / namespace / netfilter knobs for Linux containers & chroots.
 - 💾 **NTFS3** — read/write NTFS (OTG), incl. LZX/XPRESS.
@@ -265,7 +267,6 @@ Either mode works on either branch — the branch only sets the default. The def
 | ZeroMount | ✅ | ❌¹ | Enginex0/Super-Builders (`android13-5.15/ReSukiSU`) |
 | Baseband-guard | ✅ | ✅ | vc-teahouse/Baseband-guard |
 | Re:Kernel | ✅ | ✅ | in-tree `drivers/rekernel` |
-| Curated Wild perf patches | ✅ | ✅ | WildKernels/kernel_patches |
 | NTSync | ✅ | ✅ | Linux mainline ² |
 | Droidspaces | ✅ | ✅ | mainline configs + KABI shim ² |
 | Unicode bypass fix | ✅ | ✅ | WildKernels |
@@ -278,7 +279,7 @@ Either mode works on either branch — the branch only sets the default. The def
 | `gki_ptrace` info-leak fix | ✅ | ✅ | upstream fix ² |
 
 ¹ SUSFS is off in `lkm`: `fs/susfs.c` references `ksu_*` symbols that only link with `CONFIG_KSU=y`.
-² Features marked mainline/upstream originate in upstream Linux, not Wild. At build time we fetch versions **already backported to this GKI tree** from [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) to avoid re-doing the backport. What is genuinely Wild's is the "Curated Wild perf patches" row (their performance/logspam set).
+² Existing NTSync and Droidspaces functionality is retained. The Wild patch repository is used only for the Unicode fix and existing Droidspaces KABI patch; performance, log and wakeup tuning is no longer applied.
 
 ## 🚀 Build
 
@@ -291,7 +292,7 @@ ZIP_AFTER=0 ./scripts/build/build.sh              # Image only
 KERNEL_TAG=YuccaB ./scripts/build/build.sh        # custom banner tag
 ```
 
-Output: `out/<mode>/arch/arm64/boot/Image`, plus `SM8550_<tag>_<ver>_<MMDD>.zip` from `pack_anykernel.sh`. Release tag example: `sm8550-resukisu-87c8b42`. Kernel release string example: `5.15.207-android13-5-YuccaA-87c8b42-4k`.
+Output: `out/<mode>/arch/arm64/boot/Image`, plus `SM8550_<tag>_<ver>_<MMDD>.zip` from `pack_anykernel.sh`. Release tag example: `sm8550-resukisu-87c8b42`. Kernel release string example: `5.15.220-android13-5-YuccaA-87c8b42-4k`.
 
 > ⚠️ **Do not swap the toolchain or LTO.** SM8550 needs Samsung `clang-r450784e` — the newer `clang-r510928` compiles but does **not boot**. LTO must be **ThinLTO**: FULL LTO OOM-kills a 16 GB CI runner, and turning LTO fully off silently drops CFI and also yields a non-booting image. The scripts pick this automatically.
 
@@ -299,7 +300,7 @@ Prereqs: a recent Linux (Ubuntu 22.04+/WSL2), ~10 GB free disk, network on first
 
 ## ⚙️ Build switches
 
-Per-feature env toggles (all default `1`, SuSFS forced `0` in lkm): `APPLY_SUSFS`, `APPLY_ZEROMOUNT`, `APPLY_BBG`, `APPLY_ZRAM`, `APPLY_BBR`, `APPLY_WILD_PERF`, `APPLY_UNICODE_FIX`, `APPLY_NTSYNC`, `APPLY_DROIDSPACES`, `APPLY_IPV6_NAT_FIX`, `APPLY_DISABLE_SAMSUNG_SEC`. Plus `KERNEL_TAG`, `JOBS`, `SKIP_TOOLCHAIN_SETUP`, `ZIP_AFTER`, `USE_CCACHE`, `BUILD_ID`, `SUPER_BUILDERS_PIN`, and the immutable Wild source override `WILD_PATCHES_PIN` (default `35fac8ee31035fb73a8b9301b50c2bdb4ff7feb7`; an unavailable pin aborts the build).
+Per-feature env toggles (all default `1`, SuSFS forced `0` in lkm): `APPLY_SUSFS`, `APPLY_ZEROMOUNT`, `APPLY_BBG`, `APPLY_ZRAM`, `APPLY_BBR`, `APPLY_PTRACE_FIX`, `APPLY_UNICODE_FIX`, `APPLY_NTSYNC`, `APPLY_DROIDSPACES`, `APPLY_IPV6_NAT_FIX`, `APPLY_DISABLE_SAMSUNG_SEC`. Plus `KERNEL_TAG`, `JOBS`, `SKIP_TOOLCHAIN_SETUP`, `ZIP_AFTER`, `USE_CCACHE`, `BUILD_ID`, `SUPER_BUILDERS_PIN`, and the immutable Wild source override `WILD_PATCHES_PIN` (default `35fac8ee31035fb73a8b9301b50c2bdb4ff7feb7`; an unavailable pin aborts the build).
 
 ## 🔐 Security & hardening
 

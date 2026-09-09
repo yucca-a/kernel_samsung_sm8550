@@ -1,12 +1,12 @@
 menu "Re:Kernel"
 
 config REKERNEL
-	bool "Re:Kernel module"
+	bool "Re:Kernel built-in support"
 	depends on MODULES
 	default n
 	help
 	  Make tombstone users get a better experience.
-	  Tips: Enabling this will build Re-Kernel as a module
+	  Enabling this builds Re:Kernel into the kernel.
 
 config REKERNEL_NETWORK
     bool "Re:Kernel NetReceive unfreeze support"
@@ -14,4 +14,14 @@ config REKERNEL_NETWORK
     default n
     help
 	  Allow ReKernel to listen to network activity then send signal to tombstone.
+
+config REKERNEL_LEGACY_NETLINK
+    bool "Re:Kernel legacy raw-netlink transport"
+    depends on REKERNEL
+    default y
+    help
+	  Use the legacy raw-netlink transport (fixed family units 22-25, USER_PORT 100)
+	  instead of the default Generic Netlink transport. Enable this only for
+	  compatibility with an older userspace daemon that has not been updated to
+	  resolve the "rekernel" Generic Netlink family by name.
 endmenu

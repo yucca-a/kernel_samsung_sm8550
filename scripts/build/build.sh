@@ -96,7 +96,7 @@ log "Yucca gate: token hash ${TOKEN_HASH_HEX:0:16}...${TOKEN_HASH_HEX: -16} burn
 #    fs/susfs.c references ksu_cred / ksu_is_manager() directly, which
 #    only resolve when CONFIG_KSU=y. With KSU disabled in lkm mode those
 #    symbols don't exist and vmlinux fails to link. Every other feature
-#    (ZeroMount / BBG / Unicode fix / NTSync / Droidspaces / BBR / Wild perf / zram)
+#    (ZeroMount / BBG / Unicode fix / NTSync / Droidspaces / BBR / zram)
 #    is KSU-independent and is enabled in both modes.
 if [[ "${MODE}" == "lkm" ]]; then
   APPLY_SUSFS=0 "${SCRIPT_DIR}/apply_features.sh"
@@ -180,7 +180,7 @@ log "Enabling NTFS3 + full tmpfs + TTL target (keeping HUGEPAGE_POOL on; Samsung
 scripts/config --file "${OUT_DIR}/.config" \
   -e NTFS3_FS -e NTFS3_LZX_XPRESS \
   -e TMPFS -e TMPFS_POSIX_ACL -e TMPFS_XATTR -e TMPFS_INODE64 \
-  -e NETFILTER_XT_TARGET_HL
+  -e NETFILTER_XT_TARGET_HL -e REKERNEL -e REKERNEL_LEGACY_NETLINK
 
 # Mode feature configs, mirroring the sm8650/sm8750 trees:
 #   resukisu = KSU + SUSFS + ZeroMount built in
@@ -253,7 +253,7 @@ ok "Build succeeded: ${IMAGE}"
 ls -lh "${IMAGE}"
 
 # 6.5 KPM: dropped. ReSukiSU upstream removed KPM support entirely (PR #226,
-# merged 2026-06-06). drivers/kernelsu is fetched from ReSukiSU @ main, so the
+# merged 2026-06-06). drivers/kernelsu is fetched from the pinned ReSukiSU commit, so the
 # kernel-side KPM driver is gone; running patch_linux would only stamp an inert
 # patch onto the Image (and falsely log "KPM-patched"). resukisu mode now ships
 # KSU + SUSFS + ZeroMount. To bring KPM back, point fetch_kernelsu.sh at a KPM-capable
