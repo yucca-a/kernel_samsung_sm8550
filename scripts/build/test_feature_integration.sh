@@ -90,4 +90,7 @@ require_grep 'resukisu-susfs-2.3.patch' "$APPLY" \
   "SUSFS 2.3 must be adapted to the pinned ReSukiSU exec hook API"
 [ -s "$ROOT/scripts/build/features/resukisu-susfs-2.3.patch" ] || fail "missing ReSukiSU compatibility patch"
 
+require_grep '/usr/bin/patch -p1 -R --forward --dry-run --batch --fuzz=0' "$APPLY" \
+  "compatibility reverse checks must not auto-switch to forward application"
+
 echo "feature integration checks passed"

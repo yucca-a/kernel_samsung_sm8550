@@ -566,7 +566,7 @@ EOF
 # post-exec install_su_fd API. Do not install an unrelated driver fd here.
 apply_compat_patch() {
   local patch_file="${SCRIPT_DIR}/features/$1"
-  if /usr/bin/patch -p1 -R --dry-run --batch --fuzz=0 < "${patch_file}" >/dev/null 2>&1; then
+  if /usr/bin/patch -p1 -R --forward --dry-run --batch --fuzz=0 < "${patch_file}" >/dev/null 2>&1; then
     return 0
   fi
   /usr/bin/patch -p1 --forward --batch --fuzz=0 --no-backup-if-mismatch < "${patch_file}" \
