@@ -6,10 +6,11 @@
 
 > 2026-09-09 更新：LTS 5.15.220；移除全部 Wild 性能/日志/唤醒调优。
 > 保留 BBR、ZRAM LZ4、Unicode、Droidspaces、ipset 等现有功能。
-> ReSukiSU 固定至 `f1dd81dc`，SuSFS 更新至 2.3.0，Re:Kernel 使用官方 11.6 + Generic Netlink；最新 LKM / ReSukiSU 已通过真机启动与 Freezer 连接测试。
+> ReSukiSU 固定至 `f1dd81dc`，SuSFS 更新至 2.3.0，Re:Kernel 使用官方 11.6 + Generic Netlink；上一组 LKM / ReSukiSU 已通过真机启动与 Freezer 连接测试。
 > ZeroMount 内核补丁源 `c2cb7161` 尚无更新，保留现有兼容修复。
 > ZRAM/LZ4 和 ipset 沿用本 LTS 系列的内核实现及修复；它们不是独立的用户态软件包。
 > 已验证发布：[LKM](https://github.com/yucca-a/kernel_samsung_sm8550/releases/tag/sm8550-lkm-aada048) · [ReSukiSU](https://github.com/yucca-a/kernel_samsung_sm8550/releases/tag/sm8550-resukisu-aada048)
+> IP_SET / `xt_set` 测试发布（CI 已通过，待真机复测）：[LKM](https://github.com/yucca-a/kernel_samsung_sm8550/releases/tag/sm8550-lkm-c3b7793) · [ReSukiSU](https://github.com/yucca-a/kernel_samsung_sm8550/releases/tag/sm8550-resukisu-c3b7793)
 
 > 一套镜像通刷所有骁龙 8 Gen 2（SM8550 "Kalama"）三星设备的自定义 Android 内核。
 
@@ -214,8 +215,9 @@ GPL-2.0。本树派生自：
 
 # kernel_samsung_sm8550
 
-> **2026-09-09 validated release:** Linux 5.15.220 with all Wild performance/log/wakeup tuning removed. Official Re:Kernel 11.6 uses Generic Netlink; the latest LKM and ReSukiSU builds passed device boot and Freezer connectivity tests.
+> **2026-09-09 validated release:** Linux 5.15.220 with all Wild performance/log/wakeup tuning removed. Official Re:Kernel 11.6 uses Generic Netlink; the preceding LKM and ReSukiSU builds passed device boot and Freezer connectivity tests.
 > Downloads: [LKM](https://github.com/yucca-a/kernel_samsung_sm8550/releases/tag/sm8550-lkm-aada048) · [ReSukiSU](https://github.com/yucca-a/kernel_samsung_sm8550/releases/tag/sm8550-resukisu-aada048)
+> IP_SET / `xt_set` test builds (CI passed; device retest pending): [LKM](https://github.com/yucca-a/kernel_samsung_sm8550/releases/tag/sm8550-lkm-c3b7793) · [ReSukiSU](https://github.com/yucca-a/kernel_samsung_sm8550/releases/tag/sm8550-resukisu-c3b7793)
 
 > One image flashes every Snapdragon 8 Gen 2 (SM8550 "Kalama") Samsung device.
 
