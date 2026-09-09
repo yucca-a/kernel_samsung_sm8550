@@ -42,6 +42,7 @@
 - 💾 **NTFS3 读写** — OTG 上的 NTFS 盘可读写（含 LZX/XPRESS 压缩）。
 - 🗜️ **zram lz4 + BBR** — zram 默认换 lz4（ARM 上更省 CPU），TCP 默认 FQ + BBR。
 - 📁 **完整 tmpfs** — POSIX ACL / XATTR / INODE64 全开。
+- 🕸️ **完整 ipset** — 内置 IP set 类型及 iptables `xt_set` 匹配/目标，无需额外 LKM。
 - 🕵️ **IPv6 NAT 隐藏** — 构建期抹掉 `/proc/config.gz` 里的痕迹，绕过基于配置的 root 检测。
 - 🛡️ **三星安全栈禁用** — 关闭 UH / RKP / KDP / DEFEX / INTEGRITY / FIVE 等反 root 机制。
 - 🚀 **ccache 加速** — 增量编译提速约 60–80%。
@@ -93,6 +94,7 @@ AnyKernel3 zip 保持 `do.devicecheck=1`：拒绝刷入非 SM8550 机型（如 S
 | zram 默认 lz4 | ✅ | ✅ | defconfig |
 | FQ + BBR | ✅ | ✅ | defconfig |
 | 完整 tmpfs（ACL/XATTR/INODE64） | ✅ | ✅ | config |
+| 完整 ipset（含 `xt_set`） | ✅ | ✅ | config |
 | IPv6 NAT 隐藏 | ✅ | ✅ | 内置 `config_data` 钩子 |
 | 三星安全栈禁用 | ✅ | ✅ | defconfig 覆盖 |
 | `gki_ptrace` 信息泄漏修复 | ✅ | ✅ | upstream 修复 ² |
@@ -237,6 +239,7 @@ A unified Linux kernel tree for **all Samsung Galaxy devices on the SM8550 platf
 - 💾 **NTFS3** — read/write NTFS (OTG), incl. LZX/XPRESS.
 - 🗜️ **zram lz4 + BBR** — lz4 default zram compressor, FQ + BBR by default.
 - 📁 **Full tmpfs** — POSIX ACL / XATTR / INODE64.
+- 🕸️ **Full ipset** — built-in IP set types and iptables `xt_set` match/target; no extra LKM required.
 - 🕵️ **IPv6 NAT hidden** — scrubbed from `/proc/config.gz` to defeat config-based root detection.
 - 🛡️ **Samsung security stack disabled** — UH / RKP / KDP / DEFEX / INTEGRITY / FIVE off.
 - 🚀 **ccache** — ~60–80% faster incremental rebuilds.
@@ -278,6 +281,7 @@ Either mode works on either branch — the branch only sets the default. The def
 | zram default lz4 | ✅ | ✅ | config |
 | FQ + BBR | ✅ | ✅ | config |
 | Full tmpfs (ACL/XATTR/INODE64) | ✅ | ✅ | config |
+| Full ipset (including `xt_set`) | ✅ | ✅ | config |
 | IPv6 NAT hidden | ✅ | ✅ | in-tree `config_data` hook |
 | Samsung security stack disabled | ✅ | ✅ | defconfig override |
 | `gki_ptrace` info-leak fix | ✅ | ✅ | upstream fix ² |

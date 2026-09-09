@@ -83,6 +83,10 @@ require_grep 'RESUKISU_REF' "$COMMON" \
 require_grep 'apply_ptrace_fix' "$APPLY" \
   "the upstream ptrace fix is retained independently of Wild performance tuning"
 
+require_grep '\-e NETFILTER_XT_SET' "$BUILD" \
+  "both modes must build the iptables set match into the kernel"
+require_grep "CONFIG_NETFILTER_XT_SET=y" "$BUILD" \
+  "build.sh must reject an incomplete IP_SET configuration"
 
 require_grep '\-d REKERNEL_LEGACY_NETLINK' "$BUILD" \
   "both modes must explicitly disable legacy ReKernel transport"
