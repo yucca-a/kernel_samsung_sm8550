@@ -6,9 +6,10 @@
 
 > 2026-09-09 更新：LTS 5.15.220；移除全部 Wild 性能/日志/唤醒调优。
 > 保留 BBR、ZRAM LZ4、Unicode、Droidspaces、ipset 等现有功能。
-> ReSukiSU 固定至 `f1dd81dc`，SuSFS 更新至 2.3.0，Re:Kernel 保持官方 11.6，通信改用 Generic Netlink（与 SM8750 已验证的 Freezer 兼容修复一致，本机型待真机复测）。
+> ReSukiSU 固定至 `f1dd81dc`，SuSFS 更新至 2.3.0，Re:Kernel 使用官方 11.6 + Generic Netlink；最新 LKM / ReSukiSU 已通过真机启动与 Freezer 连接测试。
 > ZeroMount 内核补丁源 `c2cb7161` 尚无更新，保留现有兼容修复。
 > ZRAM/LZ4 和 ipset 沿用本 LTS 系列的内核实现及修复；它们不是独立的用户态软件包。
+> 已验证发布：[LKM](https://github.com/yucca-a/kernel_samsung_sm8550/releases/tag/sm8550-lkm-aada048) · [ReSukiSU](https://github.com/yucca-a/kernel_samsung_sm8550/releases/tag/sm8550-resukisu-aada048)
 
 > 一套镜像通刷所有骁龙 8 Gen 2（SM8550 "Kalama"）三星设备的自定义 Android 内核。
 
@@ -84,7 +85,7 @@ AnyKernel3 zip 保持 `do.devicecheck=1`：拒绝刷入非 SM8550 机型（如 S
 | SUSFS | ✅ | ❌¹ | [ShirkNeko/susfs4ksu](https://github.com/ShirkNeko/susfs4ksu)（`gki-android13-5.15`） |
 | ZeroMount | ✅ | ❌¹ | [Enginex0/Super-Builders](https://github.com/Enginex0/Super-Builders)（`android13-5.15/ReSukiSU`） |
 | Baseband-guard | ✅ | ✅ | [vc-teahouse/Baseband-guard](https://github.com/vc-teahouse/Baseband-guard) |
-| Re:Kernel | ✅ | ✅ | 内置 `drivers/rekernel` |
+| Re:Kernel 11.6（Generic Netlink） | ✅ | ✅ | 官方源码，内置 `drivers/rekernel` |
 | NTSync（Wine/Proton） | ✅ | ✅ | Linux mainline ² |
 | Droidspaces（容器） | ✅ | ✅ | mainline 配置 + KABI 补丁 ² |
 | Unicode 绕过修复 | ✅ | ✅ | WildKernels |
@@ -211,6 +212,9 @@ GPL-2.0。本树派生自：
 
 # kernel_samsung_sm8550
 
+> **2026-09-09 validated release:** Linux 5.15.220 with all Wild performance/log/wakeup tuning removed. Official Re:Kernel 11.6 uses Generic Netlink; the latest LKM and ReSukiSU builds passed device boot and Freezer connectivity tests.
+> Downloads: [LKM](https://github.com/yucca-a/kernel_samsung_sm8550/releases/tag/sm8550-lkm-aada048) · [ReSukiSU](https://github.com/yucca-a/kernel_samsung_sm8550/releases/tag/sm8550-resukisu-aada048)
+
 > One image flashes every Snapdragon 8 Gen 2 (SM8550 "Kalama") Samsung device.
 
 A unified Linux kernel tree for **all Samsung Galaxy devices on the SM8550 platform**, running Android 13 on Linux 5.15.220, based on Samsung's `kernel_samsung_sm8550-common` (android13-5.15).
@@ -266,7 +270,7 @@ Either mode works on either branch — the branch only sets the default. The def
 | SUSFS | ✅ | ❌¹ | ShirkNeko/susfs4ksu (`gki-android13-5.15`) |
 | ZeroMount | ✅ | ❌¹ | Enginex0/Super-Builders (`android13-5.15/ReSukiSU`) |
 | Baseband-guard | ✅ | ✅ | vc-teahouse/Baseband-guard |
-| Re:Kernel | ✅ | ✅ | in-tree `drivers/rekernel` |
+| Re:Kernel 11.6 (Generic Netlink) | ✅ | ✅ | official source, in-tree `drivers/rekernel` |
 | NTSync | ✅ | ✅ | Linux mainline ² |
 | Droidspaces | ✅ | ✅ | mainline configs + KABI shim ² |
 | Unicode bypass fix | ✅ | ✅ | WildKernels |
