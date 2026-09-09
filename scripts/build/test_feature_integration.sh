@@ -84,8 +84,15 @@ require_grep 'apply_ptrace_fix' "$APPLY" \
   "the upstream ptrace fix is retained independently of Wild performance tuning"
 
 
-require_grep 'REKERNEL_LEGACY_NETLINK' "$BUILD" \
-  "build.sh must preserve the legacy ReKernel userspace transport"
+require_grep '\-d REKERNEL_LEGACY_NETLINK' "$BUILD" \
+  "both modes must explicitly disable legacy ReKernel transport"
+reject_grep '\-e REKERNEL_LEGACY_NETLINK' "$BUILD" \
+  "build.sh must not force legacy ReKernel transport"
+legacy_default=$(sed -n '/^config REKERNEL_LEGACY_NETLINK/,/^endmenu/p' \
+  "$ROOT/drivers/rekernel/Kconfig" | grep -E '^[[:space:]]*default ')
+[[ "$legacy_default" =~ default[[:space:]]+n$ ]] || fail "ReKernel must default to Generic Netlink"
+require_grep 'REKERNEL_MAJOR_VERSION[[:space:]]+"11\.6"' "$ROOT/drivers/rekernel/rekernel.h" \
+  "ReKernel must remain on official 11.6"
 require_grep 'resukisu-susfs-2.3.patch' "$APPLY" \
   "SUSFS 2.3 must be adapted to the pinned ReSukiSU exec hook API"
 [ -s "$ROOT/scripts/build/features/resukisu-susfs-2.3.patch" ] || fail "missing ReSukiSU compatibility patch"

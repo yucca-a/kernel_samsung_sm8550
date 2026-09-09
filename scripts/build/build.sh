@@ -180,7 +180,7 @@ log "Enabling NTFS3 + full tmpfs + TTL target (keeping HUGEPAGE_POOL on; Samsung
 scripts/config --file "${OUT_DIR}/.config" \
   -e NTFS3_FS -e NTFS3_LZX_XPRESS \
   -e TMPFS -e TMPFS_POSIX_ACL -e TMPFS_XATTR -e TMPFS_INODE64 \
-  -e NETFILTER_XT_TARGET_HL -e REKERNEL -e REKERNEL_LEGACY_NETLINK
+  -e NETFILTER_XT_TARGET_HL -e REKERNEL -d REKERNEL_LEGACY_NETLINK
 
 # Mode feature configs, mirroring the sm8650/sm8750 trees:
 #   resukisu = KSU + SUSFS + ZeroMount built in
@@ -198,6 +198,13 @@ else
 fi
 
 make "${MAKE_ARGS[@]}" olddefconfig
+
+# Match the official Re:Kernel module's Generic Netlink transport.
+if ! grep -q '^CONFIG_REKERNEL=y$' "${OUT_DIR}/.config" || \
+   grep -q '^CONFIG_REKERNEL_LEGACY_NETLINK=y$' "${OUT_DIR}/.config"; then
+  die "ReKernel must be built in with Generic Netlink"
+fi
+log "ReKernel transport: Generic Netlink (legacy disabled)"
 
 # 5. Build with auto-retry. WSL2 ext4 occasionally fails with
 #    'clang: unable to rename .o.tmp to .o: No such file or directory'

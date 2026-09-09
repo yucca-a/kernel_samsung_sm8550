@@ -18,7 +18,7 @@ config REKERNEL_NETWORK
 config REKERNEL_LEGACY_NETLINK
     bool "Re:Kernel legacy raw-netlink transport"
     depends on REKERNEL
-    default y
+    default n
     help
 	  Use the legacy raw-netlink transport (fixed family units 22-25, USER_PORT 100)
 	  instead of the default Generic Netlink transport. Enable this only for

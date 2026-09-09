@@ -6,7 +6,7 @@
 
 > 2026-09-09 更新：LTS 5.15.220；移除全部 Wild 性能/日志/唤醒调优。
 > 保留 BBR、ZRAM LZ4、Unicode、Droidspaces、ipset 等现有功能。
-> ReSukiSU 固定至 `f1dd81dc`，SuSFS 更新至 2.3.0，Re:Kernel 更新至 11.6（保留旧 Netlink 协议）。
+> ReSukiSU 固定至 `f1dd81dc`，SuSFS 更新至 2.3.0，Re:Kernel 保持官方 11.6，通信改用 Generic Netlink（与 SM8750 已验证的 Freezer 兼容修复一致，本机型待真机复测）。
 > ZeroMount 内核补丁源 `c2cb7161` 尚无更新，保留现有兼容修复。
 > ZRAM/LZ4 和 ipset 沿用本 LTS 系列的内核实现及修复；它们不是独立的用户态软件包。
 
