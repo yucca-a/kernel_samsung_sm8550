@@ -4,7 +4,7 @@
 #
 # Usage:
 #   scripts/build/pack_anykernel.sh [mode]
-#   mode : lkm | resukisu  (default: lkm)
+#   mode : lkm (the only maintained mode)
 #
 # Reads  ${PROJECT_ROOT}/out/<mode>/arch/arm64/boot/Image
 # Writes ${PROJECT_ROOT}/out/<mode>/SM8550_LKM_<base-version>_<MMDD>.zip

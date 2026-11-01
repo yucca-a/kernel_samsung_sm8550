@@ -1,6 +1,12 @@
 # kernel_samsung_sm8550
 
-> 2026-11-01 LTS 候选：厂商 ABI 检查尚未通过，不能作为可刷机发布版。原维护分支保留更新前状态。详见 [LTS 更新记录](Documentation/lts-update-20261101.md)。
+> 当前维护版本：**Linux 5.15.224 · LKM-only**。已通过独立无缓存 Image 构建，以及所选厂商符号 CRC / 结构布局检查。真机启动和厂商二进制模块加载尚未验证。详见 [LTS 更新记录](Documentation/lts-update-20261101.md)。
+
+[下载最新 Release](https://github.com/yucca-a/kernel_samsung_sm8550/releases/latest) · [构建与 ABI 记录](Documentation/lts-update-20261101.md)
+
+Release 提供 AnyKernel3 ZIP、原始 Image、`SHA256SUMS`、`BUILDINFO.json` 和 `ABI-validation.json`。
+优先使用与本机 SoC、Android/KMI 和三星固件匹配的 ZIP；Image 是原始内核，不是完整 `boot.img`。
+发布包不附带 KernelSU 管理器或 `kernelsu.ko`。
 
 **维护策略：仅维护 LKM 兼容内核，以 KernelSU 官方 LKM 为适配目标。**
 
@@ -13,7 +19,7 @@ LKM 是加载方式，其他 KernelSU 分支也可能提供 LKM；本项目的�
 `resukisu` 参数和启用旧特性的环境变量会报错，避免生成与调用者预期不同的镜像。
 旧版本说明保留在 [UPDATE-20260909.md](UPDATE-20260909.md) 和 Git 历史中，不代表当前构建功能或验证结果。
 
-## 支持设备
+## 目标设备与打包范围
 
 | 设备系列 | Codename |
 |---|---|
@@ -48,7 +54,7 @@ AnyKernel3 zip 保持 `do.devicecheck=1`：拒绝刷入非 SM8550 机型（如 S
 配置：`gki_defconfig`；工具链：Samsung `clang-r450784e`。
 默认工具链目录：`../toolchain_samsung_sm8550/kernel_platform/prebuilts`。
 默认 AnyKernel3 模板：`../AnyKernel3_sm8550`，仅打包时需要。
-SM8550 保持 **ThinLTO + CFI**。首次正式构建生成 `.yucca_token`，它需要与配套 ROM 保持一致；更换工作区时应安全沿用同一 ROM 的 token。环境检查不会创建 token。
+SM8550 保持 **ThinLTO + CFI**。首次正式构建生成 `.yucca_token`，它需要与配套 ROM 保持一致；更换工作区时应安全沿用同一 ROM 的 token。环境检查不会创建 token。当前发布配置保持 `CONFIG_YUCCA_ROM_GATE_ENFORCE=n`，ROM gate 处于诊断模式。
 
 先安装内核编译依赖与 prebuilts，`--check` 会报告缺失项。独立特性仍按脚本获取 Baseband-guard 和固定版本的 Wild 修复；
 构建不再访问 ReSukiSU/BakaSU、susfs4ksu 或 Super-Builders。
@@ -83,7 +89,21 @@ out/lkm/SM8550_LKM_<version>_<MMDD>.zip
 最终配置必须启用模块加载和必要的探针/符号支持，并拒绝内置 KSU、SUSFS、ZeroMount、KPM 与强制模块签名配置。
 这些检查不能替代完整 Image、ABI 和真机验证。
 
-## 验证
+## 当前 LTS 验证范围
+
+| 检查 | 结果 |
+|---|---|
+| 全新工作区、关闭 ccache 的完整 Image 构建 | 通过 |
+| Android / Galaxy / QCOM 列表内、基线实际导出的符号 | 2,978 个，CRC 差异 0 |
+| `scripts/build/vendor_abi_types.txt` 中的结构布局 | 85 个，差异 0 |
+| 构建后重复执行两次特性准备 | 源码指纹不变 |
+| 统一构建入口与 LKM 配置检查 | 通过 |
+
+对照基线为更新前的本地维护源码。检查覆盖结构大小、原字段偏移与位域宽度，
+不等同于全部内核 ABI 或任意外部模块的运行时兼容保证。模块版本检查保持开启，没有硬编码 CRC。
+真机启动、厂商模块加载、显示/基带和休眠唤醒仍需在目标设备上验证。
+
+## 构建脚本自检
 
 ```bash
 python3 scripts/test_build_entry.py
@@ -100,6 +120,11 @@ GPL-2.0。三星驱动和内核、Re:Kernel、NTSync、Wild 修复、Baseband-gu
 详细历史来源见 [CREDITS-LINEAGE.md](CREDITS-LINEAGE.md)。
 
 ## English
+
+Current LTS: **Linux 5.15.224**, LKM-only.
+[Latest release](https://github.com/yucca-a/kernel_samsung_sm8550/releases/latest) includes an AnyKernel3 ZIP, raw Image, checksums and build/ABI manifests.
+Clean builds and the scoped vendor ABI checks passed (2978 symbols and 85 layouts).
+Real-device boot and vendor binary module loading remain untested; match the SoC, firmware and KMI before use.
 
 Only the **LKM-compatible kernel** is maintained. Official KernelSU LKM is the primary compatibility target;
 this tree contains no built-in Root implementation and does not build or bundle `kernelsu.ko`.

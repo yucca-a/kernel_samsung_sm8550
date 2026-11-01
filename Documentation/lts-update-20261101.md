@@ -1,7 +1,7 @@
 # SM8550 Linux 5.15.224 LTS integration (2026-11-01)
 
 Status: **local build and scoped vendor ABI validation passed**.
-Promotion target: `codex/build-reliability-netlink-permissions`.
+Merged locally into `codex/build-reliability-netlink-permissions`; published maintenance branch: `main`.
 The integration branch is `codex/lts-5.15.224-candidate`. LKM-only maintenance
 and the pre-existing local feature/build changes are preserved.
 
@@ -48,10 +48,10 @@ in the complete logs; the build is successful, not claimed warning-free.
 
 ## Reproduction and retained evidence
 
-Baseline snapshot: `7f44a41aa9d9c2a67e0352aa7295a81d1301fedc`
+Baseline snapshot: `da2fbd7ce24b20e5cf594660182c98bd8380b308`
 (`refs/codex/lts-merge-20261101/sm8550`), including earlier local LKM work.
 Validated source snapshot: `c27690e99cb1182fdba7caf7935360b86f511aa0`;
-source tree: `6297a5190301519f3ed914956728f157a9be3d60`. Only this report is updated after that build.
+source tree: `6297a5190301519f3ed914956728f157a9be3d60`. That ABI validation predates the README/release metadata update. Release builds are independently rebuilt from the published source commit; see the Release build/ABI manifests.
 
 Artifacts and logs: `/home/yucca/kernels/local-build/lts-merge-20261101`.
 Final build: `sm8550-final-build.json` and `sm8550-final-build.log`.
@@ -77,3 +77,10 @@ python3 scripts/build/check_vendor_abi.py BASELINE_OUT CURRENT_OUT \
 Reproduction requires the same feature-cache revisions and toolchain as the
 retained final worktree. The feature-prepared build worktree is separate from
 the clean source committed to the maintenance branch.
+
+## Publication identity
+
+The three unpublished integration commits were re-attributed to `yucca-a`
+using the account-linked GitHub noreply address before publication. Their
+source trees are unchanged. Original validation snapshot IDs remain local
+evidence; the baseline commit above is the corresponding published tree.
