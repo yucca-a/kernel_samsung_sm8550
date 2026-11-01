@@ -1003,6 +1003,10 @@ struct bpf_array_aux {
 		spinlock_t lock;
 		enum bpf_prog_type type;
 		bool jited;
+#ifndef __GENKSYMS__
+		/* Fits the existing padding before poke_progs. */
+		enum bpf_attach_type expected_attach_type;
+#endif
 	} owner;
 	/* Programs with direct jumps into programs part of this array. */
 	struct list_head poke_progs;

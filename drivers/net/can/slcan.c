@@ -213,6 +213,7 @@ static void slc_bump(struct slcan *sl)
 
 	can_skb_reserve(skb);
 	can_skb_prv(skb)->ifindex = sl->dev->ifindex;
+	can_skb_prv(skb)->skbcnt = 0;
 
 	skb_put_data(skb, &cf, sizeof(struct can_frame));
 
@@ -663,10 +664,9 @@ static void slcan_close(struct tty_struct *tty)
 	/* This will complete via sl_free_netdev */
 }
 
-static int slcan_hangup(struct tty_struct *tty)
+static void slcan_hangup(struct tty_struct *tty)
 {
 	slcan_close(tty);
-	return 0;
 }
 
 /* Perform I/O control on an active SLCAN channel. */

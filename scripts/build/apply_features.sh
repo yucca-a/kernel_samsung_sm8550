@@ -42,6 +42,22 @@ apply_bbg() {
   curl -fLSs --retry 3 -o "${setup}" https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh
   ( export PATH="/usr/bin:/bin:${PATH}"; bash "${setup}" )
   rm -f -- "${setup}"
+python3 - <<'PY_BBG_ONCE'
+from pathlib import Path
+p = Path('security/Makefile')
+entry = 'obj-$(CONFIG_BBG) += baseband-guard/'
+seen = False
+out = []
+for line in p.read_text().splitlines(True):
+    if line.strip() == entry:
+        if seen:
+            if out and not out[-1].strip():
+                out.pop()
+            continue
+        seen = True
+    out.append(line)
+p.write_text(''.join(out))
+PY_BBG_ONCE
   popd >/dev/null
 
   # BBG's Makefile aborts unless 'baseband_guard' is in CONFIG_LSM.
@@ -152,16 +168,13 @@ apply_ptrace_fix() {
   # Ptrace hardening for 5.15: upstream ~5.16 ptrace-message threading + our
   # ptrace_message zeroing. Vendored in-repo (no Wild dependency for this one).
   local pf="${SCRIPT_DIR}/features/ptrace/gki_ptrace.patch"
-  if [[ -f "${pf}" ]]; then
-    if patch -p1 -R --dry-run -F3 -s -f --no-backup-if-mismatch < "${pf}" >/dev/null 2>&1; then
-      warn "  ↺ already applied: gki_ptrace.patch"
-    elif patch -p1 -F3 -s --no-backup-if-mismatch < "${pf}" >/dev/null 2>&1; then
-      ok "  + applied: gki_ptrace.patch (ptrace leak fix)"
-    else
-      warn "  ! skip (does not apply): gki_ptrace.patch"
-    fi
+  [[ -f "${pf}" ]] || die "Missing ptrace patch: ${pf}"
+  if git apply --reverse --check "${pf}" >/dev/null 2>&1; then
+    log "Ptrace hardening already applied."
+  elif git apply --check "${pf}"; then
+    git apply "${pf}" || die "Ptrace patch application failed."
   else
-    warn "  missing: gki_ptrace.patch"
+    die "Ptrace patch does not match this source; rebase it before building."
   fi
   popd >/dev/null
   ok "Ptrace hardening done."

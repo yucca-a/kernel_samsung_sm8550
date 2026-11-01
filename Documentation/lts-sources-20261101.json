@@ -1,0 +1,27 @@
+[
+  {
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.15.220.tar.xz",
+    "sha256": "b5b2992505120ac864cd9ccf7cc44541684df46c5a0b09ccdec93fb7f9aa6723",
+    "verified": true
+  },
+  {
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v5.x/incr/patch-5.15.220-221.xz",
+    "sha256": "4fb72b7fa2bcf251f3c46250b233ed9007e5195c25bc0425ee1288b3f79c20a9",
+    "verified": true
+  },
+  {
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v5.x/incr/patch-5.15.221-222.xz",
+    "sha256": "be24d82578c9baa8f194d75df05cfb249171584d89c84dbc8832158fee9a0e79",
+    "verified": true
+  },
+  {
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v5.x/incr/patch-5.15.222-223.xz",
+    "sha256": "a9fa338d9d0fc5c435805fcf939247b81569b2442baba2acf59d9986d3101e52",
+    "verified": true
+  },
+  {
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v5.x/incr/patch-5.15.223-224.xz",
+    "sha256": "741b80981766ea11bc1bc56d0603d9e05e42b1f72a5c0cc17e617b6ec40580ff",
+    "verified": true
+  }
+]

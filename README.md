@@ -1,8 +1,10 @@
 # kernel_samsung_sm8550
 
+> 2026-11-01 LTS 候选：厂商 ABI 检查尚未通过，不能作为可刷机发布版。原维护分支保留更新前状态。详见 [LTS 更新记录](Documentation/lts-update-20261101.md)。
+
 **维护策略：仅维护 LKM 兼容内核，以 KernelSU 官方 LKM 为适配目标。**
 
-本仓库构建 Samsung SM8550 的自定义内核，基线为 Linux 5.15.220 / Android 13 / KMI 5。
+本仓库构建 Samsung SM8550 的自定义内核，基线为 Linux 5.15.224 / Android 13 / KMI 5。
 内核不内置 Root 实现，也不生成或附带 `kernelsu.ko`；Root 需要用户另行安装匹配的官方 KernelSU 模块。
 LKM 是加载方式，其他 KernelSU 分支也可能提供 LKM；本项目的主要适配目标是官方实现。
 实际设备的模块加载、KMI 与启动兼容性仍需验证。

@@ -1,6 +1,5 @@
-diff -u a/include/linux/ptrace.h b/include/linux/ptrace.h
---- a/include/linux/ptrace.h	2025-05-28 18:03:31.626573191 +0000
-+++ b/include/linux/ptrace.h	2025-05-28 18:22:37.777878766 +0000
+--- a/include/linux/ptrace.h
++++ b/include/linux/ptrace.h
 @@ -53,7 +53,7 @@
  extern void ptrace_disable(struct task_struct *);
  extern int ptrace_request(struct task_struct *child, long request,
@@ -20,10 +19,9 @@ diff -u a/include/linux/ptrace.h b/include/linux/ptrace.h
  	} else if (event == PTRACE_EVENT_EXEC) {
  		/* legacy EXEC report via SIGTRAP */
  		if ((current->ptrace & (PT_PTRACED|PT_SEIZED)) == PT_PTRACED)
-diff -u a/kernel/signal.c b/kernel/signal.c
---- a/kernel/signal.c	2025-05-28 18:03:08.850551845 +0000
-+++ b/kernel/signal.c	2025-05-28 18:15:35.463720730 +0000
-@@ -2231,7 +2231,7 @@
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -2277,7 +2277,7 @@
   * If we actually decide not to stop at all because the tracer
   * is gone, we keep current->exit_code unless clear_code.
   */
@@ -32,7 +30,7 @@ diff -u a/kernel/signal.c b/kernel/signal.c
  	__releases(&current->sighand->siglock)
  	__acquires(&current->sighand->siglock)
  {
-@@ -2276,7 +2276,7 @@
+@@ -2322,7 +2322,7 @@
  	 * [L]         task_is_traced()		[S] task_clear_jobctl_trapping();
  	 */
  	smp_wmb();
@@ -41,7 +39,7 @@ diff -u a/kernel/signal.c b/kernel/signal.c
  	current->last_siginfo = info;
  	current->exit_code = exit_code;
  
-@@ -2355,7 +2355,7 @@
+@@ -2401,7 +2401,7 @@
  	 */
  	spin_lock_irq(&current->sighand->siglock);
  	current->last_siginfo = NULL;
@@ -50,7 +48,7 @@ diff -u a/kernel/signal.c b/kernel/signal.c
  	/* LISTENING can be set only during STOP traps, clear it */
  	current->jobctl &= ~JOBCTL_LISTENING;
  
-@@ -2367,7 +2367,7 @@
+@@ -2413,7 +2413,7 @@
  	recalc_sigpending_tsk(current);
  }
  
@@ -59,15 +57,17 @@ diff -u a/kernel/signal.c b/kernel/signal.c
  {
  	kernel_siginfo_t info;
  
-@@ -2378,17 +2378,17 @@
+@@ -2424,17 +2424,17 @@
  	info.si_uid = from_kuid_munged(current_user_ns(), current_uid());
  
  	/* Let the debugger run.  */
 -	ptrace_stop(exit_code, why, 1, &info);
-+	ptrace_stop(exit_code, why, 1, message, &info);
- }
- 
+-}
+-
 -void ptrace_notify(int exit_code)
++	ptrace_stop(exit_code, why, 1, message, &info);
++}
++
 +void ptrace_notify(int exit_code, unsigned long message)
  {
  	BUG_ON((exit_code & (0x7f | ~0xffff)) != SIGTRAP);
@@ -80,7 +80,7 @@ diff -u a/kernel/signal.c b/kernel/signal.c
  	spin_unlock_irq(&current->sighand->siglock);
  }
  
-@@ -2543,10 +2543,10 @@
+@@ -2589,10 +2589,10 @@
  			signr = SIGTRAP;
  		WARN_ON_ONCE(!signr);
  		ptrace_do_notify(signr, signr | (PTRACE_EVENT_STOP << 8),
@@ -93,7 +93,7 @@ diff -u a/kernel/signal.c b/kernel/signal.c
  		current->exit_code = 0;
  	}
  }
-@@ -2600,7 +2600,7 @@
+@@ -2654,7 +2654,7 @@
  	 * comment in dequeue_signal().
  	 */
  	current->jobctl |= JOBCTL_STOP_DEQUEUED;
@@ -102,9 +102,8 @@ diff -u a/kernel/signal.c b/kernel/signal.c
  
  	/* We're back.  Did the debugger cancel the sig?  */
  	signr = current->exit_code;
-diff -u a/include/linux/tracehook.h b/include/linux/tracehook.h
---- a/include/linux/tracehook.h	2025-05-28 18:03:39.918809972 +0000
-+++ b/include/linux/tracehook.h	2025-05-28 18:28:20.753154339 +0000
+--- a/include/linux/tracehook.h
++++ b/include/linux/tracehook.h
 @@ -62,8 +62,7 @@
  	if (!(ptrace & PT_PTRACED))
  		return 0;
@@ -124,10 +123,9 @@ diff -u a/include/linux/tracehook.h b/include/linux/tracehook.h
  }
  
  /**
-diff -u a/kernel/ptrace.c b/kernel/ptrace.c
---- a/kernel/ptrace.c	2025-05-28 18:03:08.850551845 +0000
-+++ b/kernel/ptrace.c	2025-05-28 18:15:35.463720730 +0000
-@@ -183,6 +183,7 @@ static void ptrace_unfreeze_traced(struct task_struct *task)
+--- a/kernel/ptrace.c
++++ b/kernel/ptrace.c
+@@ -246,6 +246,7 @@
  static int ptrace_check_attach(struct task_struct *child, bool ignore_state)
  {
  	int ret = -ESRCH;
@@ -135,24 +133,50 @@ diff -u a/kernel/ptrace.c b/kernel/ptrace.c
  
  	/*
  	 * We take the read lock around doing both checks to close a
-@@ -604,6 +604,10 @@
+@@ -615,14 +616,33 @@
  	 * the comment in ptrace_resume().
  	 */
  	child->exit_code = data;
 +
 +	/* Reset ptrace_message to avoid stale PID leaks */
 +	child->ptrace_message = 0;
-+	
++
++
++	/* Reset ptrace_message to avoid stale PID leaks */
++	child->ptrace_message = 0;
++
++
++	/* Reset ptrace_message to avoid stale PID leaks */
++	child->ptrace_message = 0;
++
++
++	/* Reset ptrace_message to avoid stale PID leaks */
++	child->ptrace_message = 0;
++
++
++	/* Reset ptrace_message to avoid stale PID leaks */
++	child->ptrace_message = 0;
++
  	__ptrace_detach(current, child);
  	write_unlock_irq(&tasklist_lock);
  
-@@ -902,6 +906,9 @@
- 	if (need_siglock)
- 		spin_unlock_irq(&child->sighand->siglock);
+ 	proc_ptrace_connector(child, PTRACE_DETACH);
  
+-
+-
+-
 +	/* Clear ptrace_message to avoid leaking stale event data (e.g., zygote PID) */
 +	child->ptrace_message = 0;
-+	
+ 
  	return 0;
  }
+@@ -710,6 +730,9 @@
+ 	flags &= ~(PTRACE_O_MASK << PT_OPT_FLAG_SHIFT);
+ 	flags |= (data << PT_OPT_FLAG_SHIFT);
+ 	child->ptrace = flags;
++
++	/* Clear ptrace_message to avoid leaking stale event data (e.g., zygote PID) */
++	child->ptrace_message = 0;
  
+ 	return 0;
+ }

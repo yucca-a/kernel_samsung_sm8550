@@ -632,6 +632,7 @@ struct mm_struct {
 #endif
 		struct work_struct async_put_work;
 
+
 #ifdef CONFIG_IOMMU_SUPPORT
 		u32 pasid;
 #endif
@@ -652,7 +653,11 @@ struct mm_struct {
 		} lru_gen;
 #endif /* CONFIG_LRU_GEN */
 
+#ifdef CONFIG_FUTEX
+		ANDROID_KABI_USE(1, atomic64_t futex_unique_id);
+#else
 		ANDROID_KABI_RESERVE(1);
+#endif
 	} __randomize_layout;
 
 	/*
