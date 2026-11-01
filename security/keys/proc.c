@@ -163,7 +163,7 @@ static int proc_keys_show(struct seq_file *m, void *v)
 	int rc;
 
 	struct keyring_search_context ctx = {
-		.index_key		= key->index_key,
+		.index_key		= *key_index(key),
 		.cred			= m->file->f_cred,
 		.match_data.cmp		= lookup_user_key_possessed,
 		.match_data.raw_data	= key,

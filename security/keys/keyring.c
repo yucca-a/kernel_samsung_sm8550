@@ -178,7 +178,7 @@ static u64 key_index_id(atomic64_t *id)
  * Hash a key type, domain and description.  KEYCTL_READ exposes the tree's
  * traversal order, so no part of the index may contain kernel addresses.
  */
-static void hash_key_type_and_desc(struct keyring_index_key *index_key)
+static void hash_key_type_and_desc(struct keyring_index *index_key)
 {
 	const unsigned level_shift = ASSOC_ARRAY_LEVEL_STEP;
 	const unsigned long fan_mask = ASSOC_ARRAY_FAN_MASK;
@@ -211,7 +211,7 @@ static void hash_key_type_and_desc(struct keyring_index_key *index_key)
  * Finalise an index key to include a part of the description actually in the
  * index key, to set the domain tag and index IDs, and to calculate the hash.
  */
-void key_set_index_key(struct keyring_index_key *index_key)
+void key_set_index_key(struct keyring_index *index_key)
 {
 	static struct key_tag default_domain_tag = { .usage = REFCOUNT_INIT(1), };
 	size_t n = min_t(size_t, index_key->desc_len, sizeof(index_key->desc));
@@ -278,7 +278,7 @@ void key_remove_domain(struct key_tag *domain_tag)
 static unsigned long keyring_get_key_chunk(const void *data, int level)
 {
 	const unsigned int id_chunks = sizeof(u64) / sizeof(unsigned long);
-	const struct keyring_index_key *index_key = data;
+	const struct keyring_index *index_key = data;
 	int desc_len = index_key->desc_len;
 	unsigned long chunk = 0;
 	int n = sizeof(chunk);
@@ -320,12 +320,12 @@ static unsigned long keyring_get_key_chunk(const void *data, int level)
 static unsigned long keyring_get_object_key_chunk(const void *object, int level)
 {
 	const struct key *key = keyring_ptr_to_key(object);
-	return keyring_get_key_chunk(&key->index_key, level);
+	return keyring_get_key_chunk(key_index(key), level);
 }
 
 static bool keyring_compare_object(const void *object, const void *data)
 {
-	const struct keyring_index_key *index_key = data;
+	const struct keyring_index *index_key = data;
 	const struct key *key = keyring_ptr_to_key(object);
 
 	return key->index_key.type == index_key->type &&
@@ -342,8 +342,8 @@ static bool keyring_compare_object(const void *object, const void *data)
 static int keyring_diff_objects(const void *object, const void *data)
 {
 	const struct key *key_a = keyring_ptr_to_key(object);
-	const struct keyring_index_key *a = &key_a->index_key;
-	const struct keyring_index_key *b = data;
+	const struct keyring_index *a = key_index(key_a);
+	const struct keyring_index *b = data;
 	unsigned long seg_a, seg_b;
 	int level, i;
 	u64 diff;
@@ -1111,7 +1111,7 @@ EXPORT_SYMBOL(keyring_restrict);
  * to the returned key reference.
  */
 key_ref_t find_key_to_update(key_ref_t keyring_ref,
-			     const struct keyring_index_key *index_key)
+			     const struct keyring_index *index_key)
 {
 	struct key *keyring, *key;
 	const void *object;
@@ -1229,7 +1229,7 @@ static int keyring_detect_cycle_iterator(const void *object,
 static int keyring_detect_cycle(struct key *A, struct key *B)
 {
 	struct keyring_search_context ctx = {
-		.index_key		= A->index_key,
+		.index_key		= *key_index(A),
 		.match_data.raw_data	= A,
 		.match_data.lookup_type = KEYRING_SEARCH_LOOKUP_DIRECT,
 		.iterator		= keyring_detect_cycle_iterator,
@@ -1250,7 +1250,7 @@ static int keyring_detect_cycle(struct key *A, struct key *B)
  * Lock keyring for link.
  */
 int __key_link_lock(struct key *keyring,
-		    const struct keyring_index_key *index_key)
+		    const struct keyring_index *index_key)
 	__acquires(&keyring->sem)
 	__acquires(&keyring_serialise_link_lock)
 {
@@ -1272,7 +1272,7 @@ int __key_link_lock(struct key *keyring,
  * Lock keyrings for move (link/unlink combination).
  */
 int __key_move_lock(struct key *l_keyring, struct key *u_keyring,
-		    const struct keyring_index_key *index_key)
+		    const struct keyring_index *index_key)
 	__acquires(&l_keyring->sem)
 	__acquires(&u_keyring->sem)
 	__acquires(&keyring_serialise_link_lock)
@@ -1306,7 +1306,7 @@ int __key_move_lock(struct key *l_keyring, struct key *u_keyring,
  * Preallocate memory so that a key can be linked into to a keyring.
  */
 int __key_link_begin(struct key *keyring,
-		     const struct keyring_index_key *index_key,
+		     const struct keyring_index *index_key,
 		     struct assoc_array_edit **_edit)
 {
 	struct assoc_array_edit *edit;
@@ -1396,7 +1396,7 @@ void __key_link(struct key *keyring, struct key *key,
  * Must be called with __key_link_begin() having being called.
  */
 void __key_link_end(struct key *keyring,
-		    const struct keyring_index_key *index_key,
+		    const struct keyring_index *index_key,
 		    struct assoc_array_edit *edit)
 	__releases(&keyring->sem)
 	__releases(&keyring_serialise_link_lock)
@@ -1458,11 +1458,11 @@ int key_link(struct key *keyring, struct key *key)
 	key_check(keyring);
 	key_check(key);
 
-	ret = __key_link_lock(keyring, &key->index_key);
+	ret = __key_link_lock(keyring, key_index(key));
 	if (ret < 0)
 		goto error;
 
-	ret = __key_link_begin(keyring, &key->index_key, &edit);
+	ret = __key_link_begin(keyring, key_index(key), &edit);
 	if (ret < 0)
 		goto error_end;
 
@@ -1474,7 +1474,7 @@ int key_link(struct key *keyring, struct key *key)
 		__key_link(keyring, key, &edit);
 
 error_end:
-	__key_link_end(keyring, &key->index_key, edit);
+	__key_link_end(keyring, key_index(key), edit);
 error:
 	kleave(" = %d {%d,%d}", ret, keyring->serial, refcount_read(&keyring->usage));
 	return ret;
@@ -1505,7 +1505,7 @@ static int __key_unlink_begin(struct key *keyring, struct key *key,
 	BUG_ON(*_edit != NULL);
 
 	edit = assoc_array_delete(&keyring->keys, &keyring_assoc_array_ops,
-				  &key->index_key);
+				  key_index(key));
 	if (IS_ERR(edit))
 		return PTR_ERR(edit);
 
@@ -1620,13 +1620,13 @@ int key_move(struct key *key,
 	key_check(from_keyring);
 	key_check(to_keyring);
 
-	ret = __key_move_lock(from_keyring, to_keyring, &key->index_key);
+	ret = __key_move_lock(from_keyring, to_keyring, key_index(key));
 	if (ret < 0)
 		goto out;
 	ret = __key_unlink_begin(from_keyring, key, &from_edit);
 	if (ret < 0)
 		goto error;
-	ret = __key_link_begin(to_keyring, &key->index_key, &to_edit);
+	ret = __key_link_begin(to_keyring, key_index(key), &to_edit);
 	if (ret < 0)
 		goto error;
 
@@ -1644,7 +1644,7 @@ int key_move(struct key *key,
 	__key_unlink(from_keyring, key, &from_edit);
 	__key_link(to_keyring, key, &to_edit);
 error:
-	__key_link_end(to_keyring, &key->index_key, to_edit);
+	__key_link_end(to_keyring, key_index(key), to_edit);
 	__key_unlink_end(from_keyring, key, from_edit);
 out:
 	kleave(" = %d", ret);

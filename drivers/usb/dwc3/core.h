@@ -1124,7 +1124,6 @@ struct dwc3_scratchpad_array {
  */
 struct dwc3 {
 	struct work_struct	drd_work;
-	struct work_struct	err_recovery_work;
 	struct dwc3_trb		*ep0_trb;
 	void			*bounce;
 	void			*scratchbuf;
@@ -1142,7 +1141,6 @@ struct dwc3 {
 	struct mutex		mutex;
 
 	/* serializes pull-up run/stop vs error recovery */
-	struct mutex		connect_mutex;
 
 	struct device		*dev;
 	struct device		*sysdev;
@@ -1258,9 +1256,7 @@ struct dwc3 {
 	enum dwc3_ep0_next	ep0_next_event;
 	enum dwc3_ep0_state	ep0state;
 	enum dwc3_link_state	link_state;
-	enum dwc3_err_state	err_state;
 
-	u32			err_recovery_count;
 
 	u16			u2sel;
 	u16			u2pel;
@@ -1345,9 +1341,19 @@ struct dwc3 {
 				u8 padding2; u8 padding3; u8 padding4; u8 padding5;
 				u8 padding6; u8 padding7; });
 	ANDROID_KABI_USE(2, struct dentry *debug_root);
-	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_USE(3, struct dwc3_abi_state *abi_state);
 	ANDROID_KABI_RESERVE(4);
 };
+
+/* Core-owned state, independent of vendor controller allocation size. */
+struct dwc3_abi_state {
+	struct dwc3 *dwc;
+	struct work_struct	err_recovery_work;
+	struct mutex		connect_mutex;
+	enum dwc3_err_state	err_state;
+	u32			err_recovery_count;
+};
+
 
 /**
  * struct dwc3_vendor - contains parameters without modifying the format of DWC3 core

@@ -100,8 +100,15 @@ struct keyring_list;
 struct keyring_name;
 
 struct key_tag {
+/* The index is live while referenced; RCU storage is used only at free. */
+#ifdef __GENKSYMS__
 	struct rcu_head		rcu;
-	atomic64_t		index_id;	/* Opaque keyring index ID */
+#else
+	union {
+		struct rcu_head	rcu;
+		atomic64_t	index_id;
+	};
+#endif
 	refcount_t		usage;
 	bool			removed;	/* T when subject removed */
 };
@@ -124,8 +131,6 @@ struct keyring_index_key {
 	struct key_type		*type;
 	struct key_tag		*domain_tag;	/* Domain of operation */
 	const char		*description;
-	u64			type_id;	/* Cached index IDs */
-	u64			domain_id;
 };
 
 union key_payload {
@@ -247,8 +252,6 @@ struct key {
 			struct key_type	*type;		/* type of key */
 			struct key_tag	*domain_tag;	/* Domain of operation */
 			char		*description;
-			u64		type_id;
-			u64		domain_id;
 		};
 	};
 

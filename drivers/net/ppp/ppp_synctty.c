@@ -362,13 +362,20 @@ ppp_sync_wakeup(struct tty_struct *tty)
 }
 
 
+/* Keep the vendor line-discipline callback signature. */
+static int ppp_sync_hangup_abi(struct tty_struct *tty)
+{
+	ppp_sync_hangup(tty);
+	return 0;
+}
+
 static struct tty_ldisc_ops ppp_sync_ldisc = {
 	.owner	= THIS_MODULE,
 	.num	= N_SYNC_PPP,
 	.name	= "pppsync",
 	.open	= ppp_sync_open,
 	.close	= ppp_sync_close,
-	.hangup	= ppp_sync_hangup,
+	.hangup	= ppp_sync_hangup_abi,
 	.read	= ppp_sync_read,
 	.write	= ppp_sync_write,
 	.ioctl	= ppp_synctty_ioctl,

@@ -695,13 +695,20 @@ static int slcan_ioctl(struct tty_struct *tty, struct file *file,
 	}
 }
 
+/* Keep the vendor line-discipline callback signature. */
+static int slcan_hangup_abi(struct tty_struct *tty)
+{
+	slcan_hangup(tty);
+	return 0;
+}
+
 static struct tty_ldisc_ops slc_ldisc = {
 	.owner		= THIS_MODULE,
 	.num		= N_SLCAN,
 	.name		= "slcan",
 	.open		= slcan_open,
 	.close		= slcan_close,
-	.hangup		= slcan_hangup,
+	.hangup		= slcan_hangup_abi,
 	.ioctl		= slcan_ioctl,
 	.receive_buf	= slcan_receive_buf,
 	.write_wakeup	= slcan_write_wakeup,

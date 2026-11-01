@@ -42,7 +42,7 @@ static int key_create_persistent_register(struct user_namespace *ns)
  * to the keyring.
  */
 static int key_get_or_create_persistent(struct user_namespace *ns, kuid_t uid,
-					struct keyring_index_key *index_key,
+					struct keyring_index *index_key,
 					key_ref_t *persistent_ref)
 {
 	struct key *persistent;
@@ -80,7 +80,7 @@ static int key_get_or_create_persistent(struct user_namespace *ns, kuid_t uid,
 static long key_get_persistent(struct user_namespace *ns, kuid_t uid,
 			       key_ref_t dest_ref)
 {
-	struct keyring_index_key index_key;
+	struct keyring_index index_key;
 	struct key *persistent;
 	key_ref_t reg_ref, persistent_ref;
 	char buf[32];

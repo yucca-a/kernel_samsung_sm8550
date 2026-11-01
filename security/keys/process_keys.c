@@ -754,7 +754,7 @@ try_again:
 		key_ref = make_key_ref(key, 0);
 
 		/* check to see if we possess the key */
-		ctx.index_key			= key->index_key;
+		ctx.index_key			= *key_index(key);
 		ctx.match_data.raw_data		= key;
 		kdebug("check possessed");
 		rcu_read_lock();

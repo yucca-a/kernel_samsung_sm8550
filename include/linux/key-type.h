@@ -158,11 +158,10 @@ struct key_type {
 	int (*asym_verify_signature)(struct kernel_pkey_params *params,
 				     const void *in, const void *in2);
 
-	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_USE(1, atomic64_t index_id);
 	ANDROID_KABI_RESERVE(2);
 
 	/* internal fields */
-	atomic64_t		index_id;	/* Opaque keyring index ID */
 	struct list_head	link;		/* link in types list */
 	struct lock_class_key	lock_class;	/* key->sem lock class */
 } __randomize_layout;

@@ -86,11 +86,24 @@ static inline struct strp_msg *strp_msg(struct sk_buff *skb)
 struct strparser {
 	struct sock *sk;
 
-	u8 stopped;
-	u8 paused;
-	u8 aborted;
-	u8 interrupted;
-	u8 unrecov_intr;
+#ifdef __GENKSYMS__
+	u32 stopped : 1;
+	u32 paused : 1;
+	u32 aborted : 1;
+	u32 interrupted : 1;
+	u32 unrecov_intr : 1;
+#else
+	union {
+		struct {
+			u32 stopped : 1;
+			u32 paused : 1;
+			u32 aborted : 1;
+			u32 interrupted : 1;
+			u32 unrecov_intr : 1;
+		};
+		u32 state_flags;
+	};
+#endif
 
 	struct sk_buff **skb_nextp;
 	struct sk_buff *skb_head;
@@ -101,10 +114,34 @@ struct strparser {
 	struct strp_callbacks cb;
 };
 
+/* Update one legacy flag without racing read/modify/write of adjacent bits. */
+static inline void strp_set_flag(struct strparser *strp, unsigned int bit, bool value)
+{
+	u32 old, next, mask;
+
+#ifdef __BIG_ENDIAN
+	bit = 31 - bit;
+#endif
+	mask = 1U << bit;
+	do {
+		old = READ_ONCE(strp->state_flags);
+		next = value ? old | mask : old & ~mask;
+	} while (cmpxchg(&strp->state_flags, old, next) != old);
+}
+
+static inline bool strp_test_flag(const struct strparser *strp, unsigned int bit)
+{
+#ifdef __BIG_ENDIAN
+	bit = 31 - bit;
+#endif
+	return !!(READ_ONCE(strp->state_flags) & (1U << bit));
+}
+
+
 /* Must be called with lock held for attached socket */
 static inline void strp_pause(struct strparser *strp)
 {
-	strp->paused = 1;
+	strp_set_flag(strp, 1, 1);
 }
 
 /* May be called without holding lock for attached socket */
@@ -128,11 +165,11 @@ static inline void save_strp_stats(struct strparser *strp,
 	SAVE_PSOCK_STATS(bad_hdr_len);
 #undef SAVE_PSOCK_STATS
 
-	if (strp->aborted)
+	if (strp_test_flag(strp, 2))
 		agg_stats->aborts++;
-	if (strp->interrupted)
+	if (strp_test_flag(strp, 3))
 		agg_stats->interrupted++;
-	if (strp->unrecov_intr)
+	if (strp_test_flag(strp, 4))
 		agg_stats->unrecov_intr++;
 }
 

@@ -377,7 +377,14 @@ struct mtd_info {
 
 	struct module *owner;
 	struct device dev;
-	struct kref refcnt;
+#ifdef __GENKSYMS__
+	int usecount;
+#else
+	union {
+		int usecount;
+		struct kref refcnt;
+	};
+#endif
 	struct mtd_debug_info dbg;
 	struct nvmem_device *nvmem;
 	struct nvmem_device *otp_user_nvmem;

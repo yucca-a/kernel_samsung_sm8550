@@ -1274,13 +1274,20 @@ static int sl_siocdevprivate(struct net_device *dev, struct ifreq *rq,
 #endif
 /* VSV changes end */
 
+/* Keep the vendor line-discipline callback signature. */
+static int slip_hangup_abi(struct tty_struct *tty)
+{
+	slip_hangup(tty);
+	return 0;
+}
+
 static struct tty_ldisc_ops sl_ldisc = {
 	.owner 		= THIS_MODULE,
 	.num		= N_SLIP,
 	.name 		= "slip",
 	.open 		= slip_open,
 	.close	 	= slip_close,
-	.hangup	 	= slip_hangup,
+	.hangup	 	= slip_hangup_abi,
 	.ioctl		= slip_ioctl,
 	.receive_buf	= slip_receive_buf,
 	.write_wakeup	= slip_write_wakeup,

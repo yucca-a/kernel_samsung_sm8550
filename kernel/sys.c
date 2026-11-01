@@ -2281,7 +2281,7 @@ static int propagate_has_child_subreaper(struct task_struct *p, void *data)
 	    is_child_reaper(task_pid(p)))
 		return 0;
 
-	p->signal->has_child_subreaper = 1;
+	signal_set_subreaper(p->signal, BIT(1), true);
 	return 1;
 }
 
@@ -2512,7 +2512,7 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 		error = prctl_get_tid_address(me, (int __user * __user *)arg2);
 		break;
 	case PR_SET_CHILD_SUBREAPER:
-		me->signal->is_child_subreaper = !!arg2;
+		signal_set_subreaper(me->signal, BIT(0), !!arg2);
 		if (!arg2)
 			break;
 

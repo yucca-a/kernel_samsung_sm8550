@@ -1245,7 +1245,7 @@ u32 hci_inquiry_cache_update(struct hci_dev *hdev, struct inquiry_data *data,
 	}
 
 	/* Entry not in the cache. Add new one. */
-	ie = kzalloc(sizeof(*ie), GFP_KERNEL);
+	ie = kzalloc(sizeof(struct inquiry_entry_storage), GFP_KERNEL);
 	if (!ie) {
 		flags |= MGMT_DEV_FOUND_CONFIRM_NAME;
 		goto done;
@@ -1268,8 +1268,9 @@ update:
 	}
 
 	memcpy(&ie->data, data, sizeof(*data));
-	ie->timestamp = jiffies;
-	cache->timestamp = jiffies;
+	inquiry_entry_stamp(ie);
+	cache->timestamp = (__u32)jiffies;
+	hdev->inquiry_timestamp = jiffies;
 
 	if (ie->name_state == NAME_NOT_KNOWN)
 		flags |= MGMT_DEV_FOUND_CONFIRM_NAME;

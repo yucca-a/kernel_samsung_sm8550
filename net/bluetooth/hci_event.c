@@ -4296,7 +4296,7 @@ static void hci_clock_offset_evt(struct hci_dev *hdev, struct sk_buff *skb)
 		ie = hci_inquiry_cache_lookup(hdev, &conn->dst);
 		if (ie) {
 			ie->data.clock_offset = ev->clock_offset;
-			ie->timestamp = jiffies;
+			inquiry_entry_stamp(ie);
 		}
 	}
 
@@ -4331,7 +4331,7 @@ static void hci_pscan_rep_mode_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	ie = hci_inquiry_cache_lookup(hdev, &ev->bdaddr);
 	if (ie) {
 		ie->data.pscan_rep_mode = ev->pscan_rep_mode;
-		ie->timestamp = jiffies;
+		inquiry_entry_stamp(ie);
 	}
 
 	hci_dev_unlock(hdev);

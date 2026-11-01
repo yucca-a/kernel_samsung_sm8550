@@ -20,6 +20,55 @@
 #include <linux/mm.h>
 #include <linux/vmalloc.h>
 
+/* Keep opaque index IDs outside the module-visible struct key.  The key slab
+ * owns this storage, so it shares the key's entire lifetime, including GC.
+ */
+struct key_storage {
+	struct key key;
+	u64 type_id;
+	u64 domain_id;
+};
+
+struct keyring_index {
+	union {
+		struct keyring_index_key legacy;
+		struct {
+	/* [!] If this structure is altered, the union in struct key must change too! */
+	unsigned long		hash;			/* Hash value */
+	union {
+		struct {
+#ifdef __LITTLE_ENDIAN /* Put desc_len at the LSB of x */
+			u16	desc_len;
+			char	desc[sizeof(long) - 2];	/* First few chars of description */
+#else
+			char	desc[sizeof(long) - 2];	/* First few chars of description */
+			u16	desc_len;
+#endif
+		};
+		unsigned long x;
+	};
+	struct key_type		*type;
+	struct key_tag		*domain_tag;	/* Domain of operation */
+	const char		*description;
+		};
+	};
+	u64 type_id;
+	u64 domain_id;
+};
+
+/* Compound literal lifetime is the caller's enclosing block.  Assoc-array
+ * operations consume the index synchronously and never retain this pointer.
+ * Read the public prefix each time: GC may have replaced key->type, whereas
+ * the cached IDs must continue to identify the original tree position.
+ */
+#define key_index(keyp) (&(struct keyring_index) { \
+	.legacy = (keyp)->index_key, \
+	.type_id = container_of(keyp, struct key_storage, key)->type_id, \
+	.domain_id = container_of(keyp, struct key_storage, key)->domain_id, \
+})
+
+
+
 struct iovec;
 
 #ifdef __KDEBUG
@@ -88,26 +137,26 @@ extern spinlock_t key_serial_lock;
 extern struct mutex key_construction_mutex;
 extern wait_queue_head_t request_key_conswq;
 
-extern void key_set_index_key(struct keyring_index_key *index_key);
+extern void key_set_index_key(struct keyring_index *index_key);
 extern struct key_type *key_type_lookup(const char *type);
 extern void key_type_put(struct key_type *ktype);
 
 extern int __key_link_lock(struct key *keyring,
-			   const struct keyring_index_key *index_key);
+			   const struct keyring_index *index_key);
 extern int __key_move_lock(struct key *l_keyring, struct key *u_keyring,
-			   const struct keyring_index_key *index_key);
+			   const struct keyring_index *index_key);
 extern int __key_link_begin(struct key *keyring,
-			    const struct keyring_index_key *index_key,
+			    const struct keyring_index *index_key,
 			    struct assoc_array_edit **_edit);
 extern int __key_link_check_live_key(struct key *keyring, struct key *key);
 extern void __key_link(struct key *keyring, struct key *key,
 		       struct assoc_array_edit **_edit);
 extern void __key_link_end(struct key *keyring,
-			   const struct keyring_index_key *index_key,
+			   const struct keyring_index *index_key,
 			   struct assoc_array_edit *edit);
 
 extern key_ref_t find_key_to_update(key_ref_t keyring_ref,
-				    const struct keyring_index_key *index_key);
+				    const struct keyring_index *index_key);
 
 extern struct key *keyring_search_instkey(struct key *keyring,
 					  key_serial_t target_id);
@@ -117,7 +166,7 @@ extern int iterate_over_keyring(const struct key *keyring,
 				void *data);
 
 struct keyring_search_context {
-	struct keyring_index_key index_key;
+	struct keyring_index index_key;
 	const struct cred	*cred;
 	struct key_match_data	match_data;
 	unsigned		flags;

@@ -7020,6 +7020,13 @@ void netif_napi_add_weight(struct net_device *dev, struct napi_struct *napi,
 }
 EXPORT_SYMBOL(netif_napi_add_weight);
 
+void netif_napi_add(struct net_device *dev, struct napi_struct *napi,
+		    int (*poll)(struct napi_struct *, int), int weight)
+{
+	netif_napi_add_weight(dev, napi, poll, weight);
+}
+EXPORT_SYMBOL(netif_napi_add);
+
 void napi_disable(struct napi_struct *n)
 {
 	might_sleep();

@@ -120,9 +120,18 @@ struct signal_struct {
 	 * process will inherit a flag if they should look for a
 	 * child_subreaper process at exit.
 	 */
-	bool			is_child_subreaper;
-	bool			has_child_subreaper;
-	unsigned int		autoreap:1;
+#ifdef __GENKSYMS__
+	unsigned int		is_child_subreaper:1;
+	unsigned int		has_child_subreaper:1;
+#else
+	union {
+		struct {
+			unsigned int is_child_subreaper:1;
+			unsigned int has_child_subreaper:1;
+		};
+		unsigned int child_subreaper_flags;
+	};
+#endif
 
 #ifdef CONFIG_POSIX_TIMERS
 
@@ -238,11 +247,26 @@ struct signal_struct {
 						 * permissions.
 						 */
 
-	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_USE(1, bool autoreap);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
 	ANDROID_KABI_RESERVE(4);
 } __randomize_layout;
+
+/* Preserve the legacy flag bits while preventing concurrent prctl/propagation
+ * updates from losing each other's writes to their shared storage word.
+ */
+static inline void signal_set_subreaper(struct signal_struct *sig,
+				       unsigned int mask, bool value)
+{
+	unsigned int old, new;
+
+	do {
+		old = READ_ONCE(sig->child_subreaper_flags);
+		new = value ? old | mask : old & ~mask;
+	} while (cmpxchg(&sig->child_subreaper_flags, old, new) != old);
+}
+
 
 /*
  * Bits in flags field of signal_struct.

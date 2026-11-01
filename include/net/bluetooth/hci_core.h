@@ -61,7 +61,7 @@ struct inquiry_entry {
 		NAME_PENDING,
 		NAME_KNOWN,
 	} name_state;
-	unsigned long		timestamp;
+	__u32			timestamp;
 	struct inquiry_data	data;
 };
 
@@ -77,7 +77,7 @@ struct discovery_state {
 	struct list_head	all;	/* All devices found during inquiry */
 	struct list_head	unknown;	/* Name state not known */
 	struct list_head	resolve;	/* Name needs to be resolved */
-	unsigned long		timestamp;
+	__u32			timestamp;
 	bdaddr_t		last_adv_addr;
 	u8			last_adv_addr_type;
 	s8			last_adv_rssi;
@@ -613,7 +613,7 @@ struct hci_dev {
 	void (*cmd_timeout)(struct hci_dev *hdev);
 	bool (*prevent_wake)(struct hci_dev *hdev);
 
-	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_USE(1, unsigned long inquiry_timestamp);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
 	ANDROID_KABI_RESERVE(4);
@@ -837,15 +837,29 @@ static inline int inquiry_cache_empty(struct hci_dev *hdev)
 	return list_empty(&hdev->discovery.all);
 }
 
+/* Inquiry entries are allocated by the HCI core.  Preserve their public
+ * prefix while retaining the full jiffies value for long-running systems.
+ */
+struct inquiry_entry_storage {
+	struct inquiry_entry entry;
+	unsigned long timestamp;
+};
+static inline void inquiry_entry_stamp(struct inquiry_entry *entry)
+{
+	unsigned long now = jiffies;
+
+	entry->timestamp = (__u32)now;
+	container_of(entry, struct inquiry_entry_storage, entry)->timestamp = now;
+}
+
 static inline long inquiry_cache_age(struct hci_dev *hdev)
 {
-	struct discovery_state *c = &hdev->discovery;
-	return jiffies - c->timestamp;
+	return jiffies - hdev->inquiry_timestamp;
 }
 
 static inline long inquiry_entry_age(struct inquiry_entry *e)
 {
-	return jiffies - e->timestamp;
+	return jiffies - container_of(e, struct inquiry_entry_storage, entry)->timestamp;
 }
 
 struct inquiry_entry *hci_inquiry_cache_lookup(struct hci_dev *hdev,

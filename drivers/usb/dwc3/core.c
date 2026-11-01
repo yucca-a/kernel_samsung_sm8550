@@ -1642,6 +1642,10 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	dwc = &vdwc->dwc;
 	dwc->dev = dev;
+	dwc->abi_state = devm_kzalloc(dev, sizeof(*dwc->abi_state), GFP_KERNEL);
+	if (!dwc->abi_state)
+		return -ENOMEM;
+	dwc->abi_state->dwc = dwc;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {

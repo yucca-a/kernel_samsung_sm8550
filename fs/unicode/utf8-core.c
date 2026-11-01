@@ -11,6 +11,12 @@
 
 #include "utf8n.h"
 
+struct unicode_map_storage {
+	struct unicode_map map;
+	struct rcu_head rcu;
+};
+
+
 int utf8_validate(const struct unicode_map *um, const struct qstr *str)
 {
 	const struct utf8data *data = utf8nfdi(um->version);
@@ -217,7 +223,7 @@ struct unicode_map *utf8_load(const char *version)
 		       (unicode_version & 0xff));
 	}
 
-	um = kzalloc(sizeof(struct unicode_map), GFP_KERNEL);
+	um = kzalloc(sizeof(struct unicode_map_storage), GFP_KERNEL);
 	if (!um)
 		return ERR_PTR(-ENOMEM);
 
@@ -236,7 +242,7 @@ EXPORT_SYMBOL(utf8_load);
 void utf8_unload(struct unicode_map *um)
 {
 	if (um)
-		kfree_rcu(um, rcu);
+		kfree_rcu(container_of(um, struct unicode_map_storage, map), rcu);
 }
 EXPORT_SYMBOL(utf8_unload);
 

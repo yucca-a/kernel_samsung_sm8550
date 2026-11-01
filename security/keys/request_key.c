@@ -401,7 +401,7 @@ static int construct_alloc_key(struct keyring_search_context *ctx,
 	set_bit(KEY_FLAG_USER_CONSTRUCT, &key->flags);
 
 	if (dest_keyring) {
-		ret = __key_link_lock(dest_keyring, &key->index_key);
+		ret = __key_link_lock(dest_keyring, key_index(key));
 		if (ret < 0)
 			goto link_lock_failed;
 	}
@@ -425,7 +425,7 @@ static int construct_alloc_key(struct keyring_search_context *ctx,
 		goto key_already_present;
 
 	if (dest_keyring) {
-		ret = __key_link_begin(dest_keyring, &key->index_key, &edit);
+		ret = __key_link_begin(dest_keyring, key_index(key), &edit);
 		if (ret < 0)
 			goto link_alloc_failed;
 		__key_link(dest_keyring, key, &edit);
@@ -433,7 +433,7 @@ static int construct_alloc_key(struct keyring_search_context *ctx,
 
 	mutex_unlock(&key_construction_mutex);
 	if (dest_keyring)
-		__key_link_end(dest_keyring, &key->index_key, edit);
+		__key_link_end(dest_keyring, key_index(key), edit);
 	mutex_unlock(&user->cons_lock);
 	*_key = key;
 	kleave(" = 0 [%d]", key_serial(key));
@@ -446,13 +446,13 @@ key_already_present:
 	mutex_unlock(&key_construction_mutex);
 	key = key_ref_to_ptr(key_ref);
 	if (dest_keyring) {
-		ret = __key_link_begin(dest_keyring, &key->index_key, &edit);
+		ret = __key_link_begin(dest_keyring, key_index(key), &edit);
 		if (ret < 0)
 			goto link_alloc_failed_unlocked;
 		ret = __key_link_check_live_key(dest_keyring, key);
 		if (ret == 0)
 			__key_link(dest_keyring, key, &edit);
-		__key_link_end(dest_keyring, &key->index_key, edit);
+		__key_link_end(dest_keyring, key_index(key), edit);
 		if (ret < 0)
 			goto link_check_failed;
 	}
@@ -470,7 +470,7 @@ link_check_failed:
 link_alloc_failed:
 	mutex_unlock(&key_construction_mutex);
 link_alloc_failed_unlocked:
-	__key_link_end(dest_keyring, &key->index_key, edit);
+	__key_link_end(dest_keyring, key_index(key), edit);
 link_lock_failed:
 	mutex_unlock(&user->cons_lock);
 	key_put(key);

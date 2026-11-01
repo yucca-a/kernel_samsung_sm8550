@@ -454,6 +454,7 @@ enum net_bridge_opts {
 struct net_bridge {
 	spinlock_t			lock;
 	spinlock_t			hash_lock;
+	struct hlist_head		frame_type_list; /* retained vendor ABI slot */
 	struct net_device		*dev;
 	unsigned long			options;
 	/* These fields are accessed on each packet */

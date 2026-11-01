@@ -1115,7 +1115,7 @@ static int dwc3_gadget_ep_enable(struct usb_ep *ep,
 		return 0;
 
 	spin_lock_irqsave(&dwc->lock, flags);
-	if (dwc->err_state != DWC3_ERR_NONE) {
+	if (dwc->abi_state->err_state != DWC3_ERR_NONE) {
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -ESHUTDOWN;
 	}
@@ -2011,7 +2011,7 @@ static int dwc3_gadget_ep_queue(struct usb_ep *ep, struct usb_request *request,
 	int				ret;
 
 	spin_lock_irqsave(&dwc->lock, flags);
-	if (dwc->err_state != DWC3_ERR_NONE) {
+	if (dwc->abi_state->err_state != DWC3_ERR_NONE) {
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -ESHUTDOWN;
 	}
@@ -2249,7 +2249,7 @@ static int dwc3_gadget_ep_set_halt(struct usb_ep *ep, int value)
 	int				ret;
 
 	spin_lock_irqsave(&dwc->lock, flags);
-	if (dwc->err_state != DWC3_ERR_NONE) {
+	if (dwc->abi_state->err_state != DWC3_ERR_NONE) {
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -ESHUTDOWN;
 	}
@@ -2267,7 +2267,7 @@ static int dwc3_gadget_ep_set_wedge(struct usb_ep *ep)
 	int				ret;
 
 	spin_lock_irqsave(&dwc->lock, flags);
-	if (dwc->err_state != DWC3_ERR_NONE) {
+	if (dwc->abi_state->err_state != DWC3_ERR_NONE) {
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -ESHUTDOWN;
 	}
@@ -2392,7 +2392,7 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 	int			ret;
 
 	spin_lock_irqsave(&dwc->lock, flags);
-	if (dwc->err_state != DWC3_ERR_NONE) {
+	if (dwc->abi_state->err_state != DWC3_ERR_NONE) {
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -ESHUTDOWN;
 	}
@@ -2720,12 +2720,12 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	synchronize_irq(dwc->irq_gadget);
 
 	/* Serialize against dwc3_err_recovery_work() */
-	mutex_lock(&dwc->connect_mutex);
+	mutex_lock(&dwc->abi_state->connect_mutex);
 	if (!is_on)
 		ret = dwc3_gadget_soft_disconnect(dwc);
 	else
 		ret = dwc3_gadget_soft_connect(dwc);
-	mutex_unlock(&dwc->connect_mutex);
+	mutex_unlock(&dwc->abi_state->connect_mutex);
 
 	pm_runtime_put(dwc->dev);
 
@@ -3982,8 +3982,8 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 	vdwc->suspended = false;
 
 	/* The controller is recovered. */
-	if (dwc->err_state == DWC3_ERR_NONE)
-		dwc->err_recovery_count = 0;
+	if (dwc->abi_state->err_state == DWC3_ERR_NONE)
+		dwc->abi_state->err_recovery_count = 0;
 
 	/*
 	 * Ideally, dwc3_reset_gadget() would trigger the function
@@ -4454,8 +4454,8 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_evt)
 
 static void dwc3_schedule_err_recovery(struct dwc3 *dwc)
 {
-	dwc->err_state = DWC3_ERR_RECOVERY;
-	schedule_work(&dwc->err_recovery_work);
+	dwc->abi_state->err_state = DWC3_ERR_RECOVERY;
+	schedule_work(&dwc->abi_state->err_recovery_work);
 }
 
 static irqreturn_t dwc3_check_event_buf(struct dwc3_event_buffer *evt)
@@ -4572,12 +4572,12 @@ static void dwc_gadget_release(struct device *dev)
 
 static void dwc3_err_recovery_work(struct work_struct *work)
 {
-	struct dwc3 *dwc = container_of(work, struct dwc3, err_recovery_work);
+	struct dwc3 *dwc = container_of(work, struct dwc3_abi_state, err_recovery_work)->dwc;
 	unsigned long flags;
 	int ret;
 
 	/* serializes against dwc3_gadget_pullup() */
-	mutex_lock(&dwc->connect_mutex);
+	mutex_lock(&dwc->abi_state->connect_mutex);
 
 	ret = dwc3_gadget_soft_disconnect(dwc);
 
@@ -4596,7 +4596,7 @@ static void dwc3_err_recovery_work(struct work_struct *work)
 		synchronize_irq(dwc->irq_gadget);
 
 		spin_lock_irqsave(&dwc->lock, flags);
-		count = ++dwc->err_recovery_count;
+		count = ++dwc->abi_state->err_recovery_count;
 		spin_unlock_irqrestore(&dwc->lock, flags);
 
 		if (count > DWC3_ERR_RECOVERY_MAX)
@@ -4606,18 +4606,18 @@ static void dwc3_err_recovery_work(struct work_struct *work)
 		if (ret)
 			goto err_unrecoverable;
 	}
-	mutex_unlock(&dwc->connect_mutex);
+	mutex_unlock(&dwc->abi_state->connect_mutex);
 
 	spin_lock_irqsave(&dwc->lock, flags);
-	dwc->err_state = DWC3_ERR_NONE;
+	dwc->abi_state->err_state = DWC3_ERR_NONE;
 	spin_unlock_irqrestore(&dwc->lock, flags);
 	return;
 
 err_unrecoverable:
 	dev_err(dwc->dev, "Unable to recover the controller\n");
-	mutex_unlock(&dwc->connect_mutex);
+	mutex_unlock(&dwc->abi_state->connect_mutex);
 	spin_lock_irqsave(&dwc->lock, flags);
-	dwc->err_state = DWC3_ERR_UNRECOVERABLE;
+	dwc->abi_state->err_state = DWC3_ERR_UNRECOVERABLE;
 	spin_unlock_irqrestore(&dwc->lock, flags);
 }
 
@@ -4664,8 +4664,8 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 	}
 
 	init_completion(&dwc->ep0_in_setup);
-	INIT_WORK(&dwc->err_recovery_work, dwc3_err_recovery_work);
-	mutex_init(&dwc->connect_mutex);
+	INIT_WORK(&dwc->abi_state->err_recovery_work, dwc3_err_recovery_work);
+	mutex_init(&dwc->abi_state->connect_mutex);
 	dwc->gadget = kzalloc(sizeof(struct usb_gadget), GFP_KERNEL);
 	if (!dwc->gadget) {
 		ret = -ENOMEM;
@@ -4756,8 +4756,8 @@ void dwc3_gadget_exit(struct dwc3 *dwc)
 	if (!dwc->gadget)
 		return;
 
-	cancel_work_sync(&dwc->err_recovery_work);
-	mutex_destroy(&dwc->connect_mutex);
+	cancel_work_sync(&dwc->abi_state->err_recovery_work);
+	mutex_destroy(&dwc->abi_state->connect_mutex);
 	dwc3_enable_susphy(dwc, true);
 	usb_del_gadget(dwc->gadget);
 	dwc3_gadget_free_endpoints(dwc);

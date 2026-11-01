@@ -89,7 +89,11 @@ struct snd_usb_endpoint {
 	struct snd_urb_ctx urb[MAX_URBS];
 
 	struct snd_usb_packet_info {
-		int packet_size[MAX_PACKS_HS];
+#ifdef __GENKSYMS__
+		uint32_t packet_size[MAX_PACKS_HS];
+#else
+		int packet_size[MAX_PACKS_HS]; /* same 32-bit storage, now checked as signed */
+#endif
 		int packets;
 	} next_packet[MAX_URBS];
 	unsigned int next_packet_head;	/* ring buffer offset to read */
@@ -115,7 +119,6 @@ struct snd_usb_endpoint {
 	unsigned int phase;		/* phase accumulator */
 	unsigned int maxpacksize;	/* max packet size in bytes */
 	unsigned int maxframesize;      /* max packet size in frames */
-	unsigned int max_urb_packs;	/* packets allocated per data URB */
 	unsigned int max_urb_frames;	/* max URB size in frames */
 	unsigned int curpacksize;	/* current packet size in bytes (for capture) */
 	unsigned int curframesize;      /* current packet size in frames (for capture) */
@@ -146,7 +149,7 @@ struct snd_usb_endpoint {
 	spinlock_t lock;
 	struct list_head list;
 
-	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_USE(1, unsigned int max_urb_packs);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
 	ANDROID_KABI_RESERVE(4);

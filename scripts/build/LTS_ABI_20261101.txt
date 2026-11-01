@@ -1,0 +1,61 @@
+Vendor ABI adaptation for the 2026-11-01 LTS update
+
+Scope
+-----
+Keep the existing LKM-only configuration and module-facing interfaces while
+backporting LTS fixes. Validation compares against the pre-update local
+maintenance snapshot using the same configuration, toolchain and feature set.
+It does not certify compatibility against an unavailable device vendor image.
+
+Compatibility implementation
+----------------------------
+New core-owned lifetime state is kept in private allocations or Android KABI
+reserve slots. Existing exported function signatures and callback signatures
+are retained; new internal entry points use typed adapters. No symbol CRCs are
+hardcoded, and module version checking remains enabled.
+
+The layout profile is vendor_abi_types.txt next to check_vendor_abi.py. The
+checker compares structure sizes, old member offsets and bitfield widths.
+The byte-wide net_device.reg_state representation is equivalent to the previous
+8-bit enum bitfield. Ordinary member type spelling/width and runtime semantics
+require source review in addition to this structural check.
+
+For 6.1/6.6, nexthop group weight and PCI slot number expand from 8 to 16 bits
+within existing padding, preserving subsequent offsets and old representable
+values on these little-endian arm64 builds. New extended values require updated
+consumers. These are reviewed encoding extensions, not proof that arbitrary
+modules accessing these internal fields support the expanded value domain.
+
+Deprecated expectation timer storage is retained for layout only; the updated
+connection-tracking core owns its new expiry value separately. No timer-list
+memory is reused as an integer. Direct use of the deprecated timer is outside
+the supported KMI symbol-list contract.
+
+Validation procedure
+--------------------
+Build a fresh worktree with MODE=lkm, PACK=0, ZIP_AFTER=0 and USE_CCACHE=0.
+Compare vmlinux.symvers against the baseline, using the union of
+android/abi_gki_aarch64, abi_gki_aarch64_galaxy, *_galaxy_grey,
+*_galaxy_presubmit and *_qcom where present. Only symbols exported by the
+baseline build are included. Compare every type named in vendor_abi_types.txt.
+Run feature preparation twice and verify that tracked content is unchanged on
+the second pass. Run git diff --check before committing.
+
+Other kernel-internal types and exports outside the supplied vendor symbol
+lists can change in LTS. The complete diff inventory is retained in the local
+validation report rather than being presented as a global ABI guarantee.
+Device boot, vendor module loading, suspend/resume and hardware operation still
+require testing on the corresponding phone. No device has been flashed here.
+
+5.15 notes
+----------
+Bluetooth inquiry timestamps retain full jiffies width in private/reserved
+storage. The old member layout remains available to existing consumers.
+The ptrace feature patch no longer clears event messages when checking attach
+or setting options; the stop/resume lifecycle clears them at the proper point.
+
+Repeat the structural/symbol gate with:
+python3 scripts/build/check_vendor_abi.py BASELINE_OUT CURRENT_OUT \
+  --types-file scripts/build/vendor_abi_types.txt \
+  --symbols android/abi_gki_aarch64 android/abi_gki_aarch64_galaxy
+Add the other available symbol-list files listed above.

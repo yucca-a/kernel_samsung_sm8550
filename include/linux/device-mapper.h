@@ -363,7 +363,6 @@ struct dm_target {
 	/*
 	 * Set if this target requires stable data during writeback.
 	 */
-	bool needs_stable_writes:1;
 
 	/*
 	 * Set if we need to limit the number of in-flight bios when swapping.
@@ -376,7 +375,7 @@ struct dm_target {
 	 */
 	bool emulate_zone_append:1;
 
-	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_USE(1, bool needs_stable_writes);
 	ANDROID_KABI_RESERVE(2);
 };
 

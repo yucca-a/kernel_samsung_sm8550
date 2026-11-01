@@ -1820,7 +1820,7 @@ static void rproc_auto_boot_callback(const struct firmware *fw, void *context)
 
 static void rproc_attach_work(struct work_struct *work)
 {
-	struct rproc *rproc = container_of(work, struct rproc, attach_work);
+	struct rproc *rproc = &container_of(work, struct rproc_storage, attach_work)->rproc;
 
 	rproc_boot(rproc);
 }
@@ -1830,7 +1830,7 @@ static int rproc_trigger_auto_boot(struct rproc *rproc)
 	int ret;
 
 	if (rproc->state == RPROC_DETACHED) {
-		schedule_work(&rproc->attach_work);
+		schedule_work(&rproc_ext(rproc)->attach_work);
 		return 0;
 	}
 
@@ -1943,7 +1943,7 @@ int rproc_trigger_recovery(struct rproc *rproc)
 	if (ret)
 		return ret;
 
-	if (READ_ONCE(rproc->deleting)) {
+	if (READ_ONCE(rproc_ext(rproc)->deleting)) {
 		ret = -ENODEV;
 		goto unlock_mutex;
 	}
@@ -1994,7 +1994,7 @@ static void rproc_crash_handler_work(struct work_struct *work)
 
 	mutex_lock(&rproc->lock);
 
-	if (READ_ONCE(rproc->deleting)) {
+	if (READ_ONCE(rproc_ext(rproc)->deleting)) {
 		mutex_unlock(&rproc->lock);
 		goto out;
 	}
@@ -2055,7 +2055,7 @@ int rproc_boot(struct rproc *rproc)
 		return ret;
 	}
 
-	if (READ_ONCE(rproc->deleting)) {
+	if (READ_ONCE(rproc_ext(rproc)->deleting)) {
 		ret = -ENODEV;
 		dev_err(dev, "can't boot deleting rproc %s\n", rproc->name);
 		goto unlock_mutex;
@@ -2567,11 +2567,11 @@ struct rproc *rproc_alloc(struct device *dev, const char *name,
 	if (!dev || !name || !ops)
 		return NULL;
 
-	rproc = kzalloc(sizeof(struct rproc) + len, GFP_KERNEL);
+	rproc = kzalloc(sizeof(struct rproc_storage) + len, GFP_KERNEL);
 	if (!rproc)
 		return NULL;
 
-	rproc->priv = &rproc[1];
+	rproc->priv = rproc_ext(rproc) + 1;
 	rproc->auto_boot = true;
 	rproc->elf_class = ELFCLASSNONE;
 	rproc->elf_machine = EM_NONE;
@@ -2613,9 +2613,9 @@ struct rproc *rproc_alloc(struct device *dev, const char *name,
 	INIT_LIST_HEAD(&rproc->subdevs);
 	INIT_LIST_HEAD(&rproc->dump_segments);
 
-	INIT_WORK(&rproc->attach_work, rproc_attach_work);
+	INIT_WORK(&rproc_ext(rproc)->attach_work, rproc_attach_work);
 	INIT_WORK(&rproc->crash_handler, rproc_crash_handler_work);
-	spin_lock_init(&rproc->crash_handler_lock);
+	spin_lock_init(&rproc_ext(rproc)->crash_handler_lock);
 
 	rproc->state = RPROC_OFFLINE;
 
@@ -2680,9 +2680,9 @@ int rproc_del(struct rproc *rproc)
 	if (!rproc)
 		return -EINVAL;
 
-	spin_lock_irqsave(&rproc->crash_handler_lock, flags);
-	WRITE_ONCE(rproc->deleting, true);
-	spin_unlock_irqrestore(&rproc->crash_handler_lock, flags);
+	spin_lock_irqsave(&rproc_ext(rproc)->crash_handler_lock, flags);
+	WRITE_ONCE(rproc_ext(rproc)->deleting, true);
+	spin_unlock_irqrestore(&rproc_ext(rproc)->crash_handler_lock, flags);
 
 	if (cancel_work_sync(&rproc->crash_handler))
 		pm_relax(rproc->dev.parent);
@@ -2808,16 +2808,16 @@ void rproc_report_crash(struct rproc *rproc, enum rproc_crash_type type)
 		return;
 	}
 
-	spin_lock_irqsave(&rproc->crash_handler_lock, flags);
-	if (READ_ONCE(rproc->deleting)) {
-		spin_unlock_irqrestore(&rproc->crash_handler_lock, flags);
+	spin_lock_irqsave(&rproc_ext(rproc)->crash_handler_lock, flags);
+	if (READ_ONCE(rproc_ext(rproc)->deleting)) {
+		spin_unlock_irqrestore(&rproc_ext(rproc)->crash_handler_lock, flags);
 		return;
 	}
 
 	/* Prevent suspend while the remoteproc is being recovered */
 	pm_stay_awake(rproc->dev.parent);
 	queue_work(rproc_recovery_wq, &rproc->crash_handler);
-	spin_unlock_irqrestore(&rproc->crash_handler_lock, flags);
+	spin_unlock_irqrestore(&rproc_ext(rproc)->crash_handler_lock, flags);
 
 	dev_err(&rproc->dev, "crash detected in %s: type %s\n",
 		rproc->name, rproc_crash_to_string(type));

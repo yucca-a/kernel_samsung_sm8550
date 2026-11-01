@@ -1,69 +1,79 @@
-# SM8550 Linux 5.15.224 LTS candidate (2026-11-01)
+# SM8550 Linux 5.15.224 LTS integration (2026-11-01)
 
-Status: **candidate only; vendor ABI validation failed; not a flashable release**.
-The normal maintenance worktree remains at Linux 5.15.220 with its existing
-uncommitted LKM-only changes intact. This candidate is on `codex/lts-5.15.224-candidate`.
+Status: **local build and scoped vendor ABI validation passed**.
+Promotion target: `codex/build-reliability-netlink-permissions`.
+The integration branch is `codex/lts-5.15.224-candidate`. LKM-only maintenance
+and the pre-existing local feature/build changes are preserved.
 
-## Source
+## Source and compatibility
 
-Applied the kernel.org incremental LTS patches from 5.15.220 to 5.15.224
-using a three-way merge against the corresponding pristine upstream files.
-Downloads were checked against the SHA-256 values published at
-<https://cdn.kernel.org/pub/linux/kernel/>. This is checksum verification, not
-an assertion that OpenPGP signatures were verified. Exact file hashes are in
+Applied kernel.org incremental patches from 5.15.220 to 5.15.224 using three-way
+merges against pristine upstream files. SHA-256 checksums were verified;
+OpenPGP signatures were not verified. Exact source URLs and hashes are in
 `Documentation/lts-sources-20261101.json`.
 
-Existing Samsung/Android differences and LKM-only build policy were retained.
-The implementation includes vendor API adaptations in USB, F2FS, memory
-management, networking and firmware drivers. It is not byte-identical to the
-vanilla Linux release, and no claim of complete CVE coverage is made.
+Core-owned state uses private allocations or Android KABI reserve slots.
+Legacy exports and callback signatures use typed adapters where necessary.
+Symbol CRCs are generated normally; module version checks stay enabled.
+Implementation details and encoding/lifetime limits are in
+`scripts/build/LTS_ABI_20261101.txt`.
 
-## Validation
+Bluetooth inquiry timestamps retain full-width jiffies in private/reserved storage. The ptrace feature patch preserves event messages until the proper stop/resume transition.
 
-- Native `./build.sh lkm`, Samsung toolchain, production defconfig, Image target: passed.
-- The pre-update snapshot was rebuilt with the corresponding LKM configuration.
-- Root-source guard and feature preparation: passed. Two consecutive feature
-  passes produce the same tracked source tree.
-- SM8550 ptrace patch was rebased and now checks before applying, fails on a
-  mismatch and recognizes an already-applied patch. BBG object registration
-  is deduplicated after its setup script.
-- Selected Android/Galaxy/QCOM export CRCs: **1779 mismatches among 2978 exports**.
-- Selected core-structure layout changes: none in the selected core-type sample; other structures differ.
-- Whole-image comparison: 44 changed/missing structures;
-  9992 differing/missing CRCs among 15562 exports.
+This Samsung/Android tree is not byte-identical to vanilla Linux, and these
+results do not establish complete upstream CVE coverage.
 
-Equal total structure size does not establish compatibility: field offsets and
-bit positions also matter. Module version checks remain enabled. CRC values
-were not forced to match. Current differences include shared key-management and
-TTY type changes, which propagate through many exported interfaces.
-The report deliberately retains failing results.
+## Validation results
 
-The built-source worktree is `/home/yucca/kernels/local-build/lts-merge-20261101/sm8550-updated`. The review worktree is
-`/home/yucca/kernels/kernel_samsung_sm8550_lts` and omits build-time feature modifications. Compiled Image is
-`/home/yucca/kernels/local-build/lts-merge-20261101/sm8550-updated/out/lkm/arch/arm64/boot/Image`; it is for analysis only. Feature-script
-and documentation cleanup after compilation was checked independently; a fresh
-release build is still required after the outstanding ABI repair.
+- Independent fresh worktree, production arm64 defconfig and configured Samsung
+  toolchain, `./build.sh lkm`, `PACK=0 ZIP_AFTER=0 USE_CCACHE=0`: **passed**.
+- Pre-update local snapshot rebuilt with the corresponding LKM configuration.
+- Union of available Android/Galaxy/QCOM symbol lists, restricted to exports
+  present in that baseline: **0 differing/missing CRCs of 2978 symbols**.
+- Explicit `scripts/build/vendor_abi_types.txt` profile: **0 layout changes across
+  85 types** (size, old member offsets and bitfield widths).
+- Two feature-preparation runs after the successful build: both passed and
+  neither changed the built source fingerprint.
+- Root-source guard, shell syntax and `git diff --check`: passed.
+- Complete-image inventory still contains 23 changed/missing types
+  and 12 differing/missing CRCs of 15562 exports outside the
+  selected symbol gate. These are recorded, not hidden or treated as a global
+  ABI guarantee. Internal types can change independently of the KMI profile.
 
-## Remaining work before promotion
+The checker does not prove every C member type or runtime behavior. Actual
+vendor-module binaries, device boot, storage/display/radio, suspend/resume,
+other architectures and allmodconfig were not tested. No AnyKernel package
+was produced and no phone was flashed. Compiler/configuration warnings remain
+in the complete logs; the build is successful, not claimed warning-free.
 
-Resolve vendor-facing layouts, enum values, exported function/callback
-signatures and symbol CRC changes without removing the upstream correctness
-fixes. Recheck the exact vendor module set, then perform device boot, storage,
-display, radio and suspend tests. Allmodconfig, other architectures, external
-modules and actual device boot were not tested. No AnyKernel ZIP was produced,
-no device was flashed and no branch was pushed.
+## Reproduction and retained evidence
 
-## Recovery and reproduction
+Baseline snapshot: `7f44a41aa9d9c2a67e0352aa7295a81d1301fedc`
+(`refs/codex/lts-merge-20261101/sm8550`), including earlier local LKM work.
+Validated source snapshot: `c27690e99cb1182fdba7caf7935360b86f511aa0`;
+source tree: `6297a5190301519f3ed914956728f157a9be3d60`. Only this report is updated after that build.
 
-Original snapshot: `7f44a41aa9d9c2a67e0352aa7295a81d1301fedc` (`refs/codex/lts-merge-20261101/sm8550`).
-The original worktree and unified normal build entry continue using the prior
-maintenance branch. The full comparison artifacts and build logs are under
-`/home/yucca/kernels/local-build/lts-merge-20261101`.
+Artifacts and logs: `/home/yucca/kernels/local-build/lts-merge-20261101`.
+Final build: `sm8550-final-build.json` and `sm8550-final-build.log`.
+ABI gate: `sm8550-final-vendor-validation.json` (commands and artifact hashes).
+Feature stability: `sm8550-final-features.json`.
+Whole-image inventory: `sm8550-final-abi-inventory.json`.
+Image: `/home/yucca/kernels/local-build/lts-merge-20261101/sm8550-final/out/lkm/arch/arm64/boot/Image`.
+The Image's generated version suffix identifies the validated source snapshot.
 
 ```sh
-cd /home/yucca/kernels/kernel_samsung_sm8550_lts
 ./build.sh --check
-./build.sh lkm --no-pack
+MODE=lkm PACK=0 ZIP_AFTER=0 USE_CCACHE=0 ./build.sh lkm
+symbols=()
+for f in android/abi_gki_aarch64 android/abi_gki_aarch64_galaxy \
+         android/abi_gki_aarch64_galaxy_grey \
+         android/abi_gki_aarch64_galaxy_presubmit android/abi_gki_aarch64_qcom; do
+    [ ! -f "$f" ] || symbols+=("$f")
+done
+python3 scripts/build/check_vendor_abi.py BASELINE_OUT CURRENT_OUT \
+  --types-file scripts/build/vendor_abi_types.txt --symbols "${symbols[@]}"
 ```
 
-Building this candidate does not imply that the ABI failure has been resolved.
+Reproduction requires the same feature-cache revisions and toolchain as the
+retained final worktree. The feature-prepared build worktree is separate from
+the clean source committed to the maintenance branch.

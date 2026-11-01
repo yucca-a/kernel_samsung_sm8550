@@ -196,3 +196,15 @@ bool rproc_u64_fit_in_size_t(u64 val)
 }
 
 #endif /* REMOTEPROC_INTERNAL_H */
+
+#ifndef RPROC_ABI_STORAGE_H
+#define RPROC_ABI_STORAGE_H
+/* Allocation-owned state; rproc->priv starts after this complete storage. */
+struct rproc_storage {
+	struct rproc rproc;
+	struct work_struct attach_work;
+	spinlock_t crash_handler_lock;
+	bool deleting;
+};
+#define rproc_ext(rp) container_of(rp, struct rproc_storage, rproc)
+#endif

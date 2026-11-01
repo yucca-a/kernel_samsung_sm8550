@@ -271,6 +271,13 @@ static void serport_ldisc_write_wakeup(struct tty_struct * tty)
  * The line discipline structure.
  */
 
+/* Keep the vendor line-discipline callback signature. */
+static int serport_ldisc_hangup_abi(struct tty_struct *tty)
+{
+	serport_ldisc_hangup(tty);
+	return 0;
+}
+
 static struct tty_ldisc_ops serport_ldisc = {
 	.owner =	THIS_MODULE,
 	.num =		N_MOUSE,
@@ -283,7 +290,7 @@ static struct tty_ldisc_ops serport_ldisc = {
 	.compat_ioctl =	serport_ldisc_compat_ioctl,
 #endif
 	.receive_buf =	serport_ldisc_receive,
-	.hangup =	serport_ldisc_hangup,
+	.hangup =	serport_ldisc_hangup_abi,
 	.write_wakeup =	serport_ldisc_write_wakeup
 };
 

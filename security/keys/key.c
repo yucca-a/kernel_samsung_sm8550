@@ -283,7 +283,15 @@ struct key *key_alloc(struct key_type *type, const char *desc,
 	if (!key->index_key.description)
 		goto no_memory_3;
 	key->index_key.type = type;
-	key_set_index_key(&key->index_key);
+	{
+		struct keyring_index index = { .legacy = key->index_key };
+		struct key_storage *storage = container_of(key, struct key_storage, key);
+
+		key_set_index_key(&index);
+		key->index_key = index.legacy;
+		storage->type_id = index.type_id;
+		storage->domain_id = index.domain_id;
+	}
 
 	refcount_set(&key->usage, 1);
 	init_rwsem(&key->sem);
@@ -517,11 +525,11 @@ int key_instantiate_and_link(struct key *key,
 	}
 
 	if (keyring) {
-		ret = __key_link_lock(keyring, &key->index_key);
+		ret = __key_link_lock(keyring, key_index(key));
 		if (ret < 0)
 			goto error;
 
-		ret = __key_link_begin(keyring, &key->index_key, &edit);
+		ret = __key_link_begin(keyring, key_index(key), &edit);
 		if (ret < 0)
 			goto error_link_end;
 
@@ -539,7 +547,7 @@ int key_instantiate_and_link(struct key *key,
 
 error_link_end:
 	if (keyring)
-		__key_link_end(keyring, &key->index_key, edit);
+		__key_link_end(keyring, key_index(key), edit);
 
 error:
 	if (key->type->preparse)
@@ -586,7 +594,7 @@ int key_reject_and_link(struct key *key,
 	ret = -EBUSY;
 
 	if (keyring) {
-		link_ret = __key_link_lock(keyring, &key->index_key);
+		link_ret = __key_link_lock(keyring, key_index(key));
 		if (link_ret == 0) {
 			/*
 			 * Check the restriction under the keyring semaphore.
@@ -595,12 +603,12 @@ int key_reject_and_link(struct key *key,
 			 * concurrent restriction install.
 			 */
 			if (keyring->restrict_link) {
-				__key_link_end(keyring, &key->index_key, edit);
+				__key_link_end(keyring, key_index(key), edit);
 				return -EPERM;
 			}
-			link_ret = __key_link_begin(keyring, &key->index_key, &edit);
+			link_ret = __key_link_begin(keyring, key_index(key), &edit);
 			if (link_ret < 0)
-				__key_link_end(keyring, &key->index_key, edit);
+				__key_link_end(keyring, key_index(key), edit);
 		}
 	}
 
@@ -631,7 +639,7 @@ int key_reject_and_link(struct key *key,
 	mutex_unlock(&key_construction_mutex);
 
 	if (keyring && link_ret == 0)
-		__key_link_end(keyring, &key->index_key, edit);
+		__key_link_end(keyring, key_index(key), edit);
 
 	/* wake up anyone waiting for a key to be constructed */
 	if (awaken)
@@ -824,7 +832,7 @@ key_ref_t key_create_or_update(key_ref_t keyring_ref,
 			       key_perm_t perm,
 			       unsigned long flags)
 {
-	struct keyring_index_key index_key = {
+	struct keyring_index index_key = {
 		.description	= description,
 	};
 	struct key_preparsed_payload prep;
@@ -1204,7 +1212,7 @@ EXPORT_SYMBOL(unregister_key_type);
 void __init key_init(void)
 {
 	/* allocate a slab in which we can store keys */
-	key_jar = kmem_cache_create("key_jar", sizeof(struct key),
+	key_jar = kmem_cache_create("key_jar", sizeof(struct key_storage),
 			0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
 
 	/* add the special key types */

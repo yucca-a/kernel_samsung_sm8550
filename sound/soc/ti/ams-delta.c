@@ -395,13 +395,20 @@ static void cx81801_wakeup(struct tty_struct *tty)
 	v253_ops.write_wakeup(tty);
 }
 
+/* Keep the vendor line-discipline callback signature. */
+static int cx81801_hangup_abi(struct tty_struct *tty)
+{
+	cx81801_hangup(tty);
+	return 0;
+}
+
 static struct tty_ldisc_ops cx81801_ops = {
 	.name = "cx81801",
 	.num = N_V253,
 	.owner = THIS_MODULE,
 	.open = cx81801_open,
 	.close = cx81801_close,
-	.hangup = cx81801_hangup,
+	.hangup = cx81801_hangup_abi,
 	.receive_buf = cx81801_receive,
 	.write_wakeup = cx81801_wakeup,
 };
