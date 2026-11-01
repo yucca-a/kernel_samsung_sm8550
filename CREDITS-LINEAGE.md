@@ -1,3 +1,5 @@
+> 历史来源记录：2026-11-01 起当前构建仅维护 LKM，不再集成或下载 ReSukiSU、SUSFS、ZeroMount。以下保留旧版本的贡献与来源归属。
+
 # CREDITS-LINEAGE.md
 
 This file records the full provenance of every component in this

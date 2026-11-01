@@ -241,5 +241,4 @@ source "drivers/most/Kconfig"
 
 source "drivers/knox/Kconfig"
 
-source "drivers/kernelsu/Kconfig"
 endmenu

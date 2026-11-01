@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Main build entrypoint.
+# Platform build implementation; ./build.sh is the public entry.
 #
 # One kernel image works on every Samsung SM8550 device (S23/Z5/Tab S9
 # family). The AnyKernel3 zip lists all SM8550 codenames so a single
 # zip flashes everywhere.
 #
 # Usage:
-#   scripts/build/build.sh [mode]
-#   mode : lkm | resukisu  (default: from .kernel_build_mode marker)
+#   ./build.sh [lkm] [--pack] [--check] [--jobs N]
+#   mode : lkm only (default)
 #
 # Env overrides:
 #   KERNEL_TAG                           : banner suffix (default YuccaA)
-#   APPLY_SUSFS / APPLY_ZEROMOUNT / APPLY_BBG / APPLY_ZRAM : 0|1, see apply_features.sh
-#   JOBS                                 : parallel make jobs (default nproc)
+#   APPLY_BBG / APPLY_ZRAM : 0|1, see apply_features.sh
+#   JOBS                                 : parallel make jobs (default 16)
 #   SKIP_TOOLCHAIN_SETUP=1               : trust prebuilts/ as-is
 #   ZIP_AFTER=0                          : skip auto-pack of AnyKernel3 zip
 #   BUILD_ID                             : short commit build id in the kernel name
@@ -20,22 +20,12 @@
 
 set -euo pipefail
 
+source "$(dirname -- "${BASH_SOURCE[0]}")/../build_entry.sh"
+kernel_entry_init "$@"
+
 # shellcheck source=common.sh
 source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
 
-# Default mode comes from .kernel_build_mode (branch marker); fall back to lkm.
-DEFAULT_MODE="lkm"
-if [[ -f "${PROJECT_ROOT}/.kernel_build_mode" ]]; then
-  DEFAULT_MODE="$(tr -d ' \n\r\t' < "${PROJECT_ROOT}/.kernel_build_mode")"
-fi
-MODE="${1:-${DEFAULT_MODE}}"
-case "${MODE}" in
-  lkm|resukisu) ;;
-  *) die "unknown mode '${MODE}'. Use lkm or resukisu." ;;
-esac
-
-JOBS="${JOBS:-$(nproc)}"
-OUT_DIR="${PROJECT_ROOT}/out/${MODE}"
 mkdir -p "${OUT_DIR}"
 
 log "Mode:    ${MODE}"
@@ -52,14 +42,6 @@ if [[ "${SKIP_TOOLCHAIN_SETUP:-0}" != "1" ]]; then
   "${SCRIPT_DIR}/setup_toolchain.sh"
 fi
 export PATH="${CLANG_BIN}:${BUILDTOOLS_BIN}:${BUILDTOOLS_PATH_BIN}:${KERNEL_BUILD_TOOLS_BIN}:${PATH}"
-
-# 2. ReSukiSU sources are always fetched: drivers/kernelsu is a symlink
-#    that must resolve at Kconfig-parse time even when KSU is disabled.
-#    Mode controls whether KSU is compiled into vmlinux (resukisu: y) or
-#    entirely absent (lkm: n). In lkm mode the KSU manager app patches
-#    init_boot at flash time to inject userspace KSU, which uses kprobes
-#    to instrument the unmodified vmlinux at runtime.
-"${SCRIPT_DIR}/fetch_kernelsu.sh"
 
 # 2.5 Yucca ROM gate token.
 #     The kernel image embeds SHA256(token) and verifies userspace knows
@@ -91,18 +73,8 @@ EOF
 
 log "Yucca gate: token hash ${TOKEN_HASH_HEX:0:16}...${TOKEN_HASH_HEX: -16} burnt into header"
 
-# 3. Optional features.
-#    SuSFS is the one feature that MUST be off in lkm mode because its
-#    fs/susfs.c references ksu_cred / ksu_is_manager() directly, which
-#    only resolve when CONFIG_KSU=y. With KSU disabled in lkm mode those
-#    symbols don't exist and vmlinux fails to link. Every other feature
-#    (ZeroMount / BBG / Unicode fix / NTSync / Droidspaces / BBR / zram)
-#    is KSU-independent and is enabled in both modes.
-if [[ "${MODE}" == "lkm" ]]; then
-  APPLY_SUSFS=0 "${SCRIPT_DIR}/apply_features.sh"
-else
-  "${SCRIPT_DIR}/apply_features.sh"
-fi
+# 3. Root-independent features.
+"${SCRIPT_DIR}/apply_features.sh"
 
 # 4. Configure
 # Kernel localversion: match the sm8650/sm8750 short-commit scheme.
@@ -121,7 +93,7 @@ USE_CCACHE="${USE_CCACHE:-1}"
 if [[ "${USE_CCACHE}" == "1" ]] && command -v ccache >/dev/null 2>&1; then
   export CCACHE_DIR="${CCACHE_DIR:-${HOME}/.ccache_kernel_sm8550}"
   mkdir -p "${CCACHE_DIR}"
-  ccache --max-size=20G >/dev/null 2>&1 || true
+  ccache --max-size="${CCACHE_MAXSIZE:-20G}" >/dev/null 2>&1 || true
   ccache --set-config=compression=true >/dev/null 2>&1 || true
   ccache --set-config=compression_level=1 >/dev/null 2>&1 || true
   CC_VAL='ccache clang'
@@ -158,7 +130,7 @@ MAKE_ARGS=(
 )
 
 log "Configuring (defconfig + gki_defconfig fragment)..."
-make "${MAKE_ARGS[@]}" gki_defconfig
+make "${MAKE_ARGS[@]}" "$BUILD_DEFCONFIG"
 
 # LTO: use ThinLTO. The committed gki_defconfig ships CONFIG_LTO_CLANG_FULL=y +
 # CONFIG_CFI_CLANG=y. FULL LTO OOM-kills the 16 GB CI runner (exit 143), but
@@ -183,22 +155,14 @@ scripts/config --file "${OUT_DIR}/.config" \
   -e NETFILTER_XT_TARGET_HL -e NETFILTER_XT_SET \
   -e REKERNEL -d REKERNEL_LEGACY_NETLINK
 
-# Mode feature configs, mirroring the sm8650/sm8750 trees:
-#   resukisu = KSU + SUSFS + ZeroMount built in
-#   lkm      = pure kernel, none of them (KSU injected at flash time by the
-#              manager app patching init_boot; SUSFS must be off).
-# Enabling KSU_SUSFS is what actually turns SuSFS on (apply_features.sh only
-# drops in the source + Kconfig). KPM was dropped: ReSukiSU upstream removed it
-# (PR #226, 2026-06-06), so there is no kernel-side KPM driver to enable.
-if [[ "${MODE}" == "lkm" ]]; then
-  log "lkm: disabling KSU / KSU_SUSFS / ZEROMOUNT (pure kernel; KSU injected at flash time)..."
-  scripts/config --file "${OUT_DIR}/.config" --disable KSU --disable KSU_SUSFS --disable ZEROMOUNT
-else
-  log "resukisu: enabling KSU / KSU_SUSFS / ZEROMOUNT..."
-  scripts/config --file "${OUT_DIR}/.config" --enable KSU --enable KSU_SUSFS --enable ZEROMOUNT
-fi
+# The kernel carries no root implementation; a matching official LKM is installed separately.
+./scripts/config --file "$OUT_DIR/.config" \
+  -e MODULES -e KPROBES -e KALLSYMS -e KALLSYMS_ALL -e EXT4_FS \
+  -d KSU -d KSU_SUSFS -d ZEROMOUNT -d KPM \
+  -d MODULE_SIG_FORCE -d MODULE_SIG_PROTECT -d TRIM_UNUSED_KSYMS
 
 make "${MAKE_ARGS[@]}" olddefconfig
+python3 "${PROJECT_ROOT}/scripts/check_lkm.py" config "$OUT_DIR/.config"
 
 # IP_SET without XT_SET cannot be consumed by iptables' -m set match.
 if ! grep -q '^CONFIG_NETFILTER_XT_SET=y$' "${OUT_DIR}/.config"; then
@@ -213,68 +177,12 @@ if ! grep -q '^CONFIG_REKERNEL=y$' "${OUT_DIR}/.config" || \
 fi
 log "ReKernel transport: Generic Netlink (legacy disabled)"
 
-# 5. Build with auto-retry. WSL2 ext4 occasionally fails with
-#    'clang: unable to rename .o.tmp to .o: No such file or directory'
-#    when many parallel mkdirs race during the first build. Each retry
-#    creates more directories, so 2-4 retries usually converge. The
-#    retry is skipped if the make failure mentions any non-rename
-#    error (real compile / link issue).
-log "Building kernel Image (with auto-retry on rename races)..."
-IMAGE="${OUT_DIR}/arch/arm64/boot/Image"
-MAX_RETRY=5
-attempt=0
-while true; do
-  attempt=$((attempt + 1))
-  build_log="${OUT_DIR}/.make.attempt${attempt}.log"
-  # Delete any prior Image so a stale file (from an earlier build or
-  # a prior attempt that died after writing Image) cannot masquerade
-  # as success in the post-failure check below. If make succeeds this
-  # attempt, Image reappears via OBJCOPY in a fraction of a second.
-  rm -f "${IMAGE}"
-  set +o pipefail
-  make "${MAKE_ARGS[@]}" Image 2>&1 | tee "${build_log}"
-  rc=${PIPESTATUS[0]}
-  set -o pipefail
-  if [[ ${rc} -eq 0 ]]; then
-    log "make Image succeeded on attempt ${attempt}."
-    break
-  fi
-  # WSL2 rename race sometimes triggers during the final OBJCOPY step,
-  # after Image has actually been written. Accept that as success since
-  # the artifact we want is on disk and Image is newer than the rm -f
-  # above (so it is guaranteed to have been produced this attempt).
-  if [[ -f "${IMAGE}" ]]; then
-    log "Image produced on attempt ${attempt} despite reported failure (likely rename race)."
-    break
-  fi
-  if [[ ${attempt} -ge ${MAX_RETRY} ]]; then
-    die "make Image failed after ${MAX_RETRY} attempts; see ${build_log}"
-  fi
-  # Bail early on real compile/link errors (anything but the WSL2 rename
-  # race). If we see at least one non-rename 'error:' line, abort.
-  real_errs=$(grep -E '^.*error:' "${build_log}" \
-              | grep -vc 'error: unable to rename temporary' || true)
-  if (( real_errs > 0 )); then
-    die "make Image hit a real compile/link error (${real_errs} lines); see ${build_log}"
-  fi
-  warn "Attempt ${attempt}: failure with no real compile error; retrying..."
-done
+# 5. Build Image. Only a successful make and a valid arm64 header may be packed.
+source "${SCRIPT_DIR}/build_image.sh"
+build_kernel_image "${OUT_DIR}" "${MAKE_ARGS[@]}"
 
-if [[ ! -f "${IMAGE}" ]]; then
-  die "Image not produced at ${IMAGE}"
-fi
-ok "Build succeeded: ${IMAGE}"
-ls -lh "${IMAGE}"
-
-# 6.5 KPM: dropped. ReSukiSU upstream removed KPM support entirely (PR #226,
-# merged 2026-06-06). drivers/kernelsu is fetched from the pinned ReSukiSU commit, so the
-# kernel-side KPM driver is gone; running patch_linux would only stamp an inert
-# patch onto the Image (and falsely log "KPM-patched"). resukisu mode now ships
-# KSU + SUSFS + ZeroMount. To bring KPM back, point fetch_kernelsu.sh at a KPM-capable
-# source (e.g. SukiSU-Ultra) and restore the patch_linux step here.
-
-# 7. Optional: chain into AnyKernel3 packaging. Default on.
-if [[ "${ZIP_AFTER:-1}" == "1" ]]; then
+# 7. Optional: AnyKernel3 packaging, selected by the shared entry.
+if [[ "${ZIP_AFTER:-0}" == "1" ]]; then
   log "Packing AnyKernel3 zip..."
   "${SCRIPT_DIR}/pack_anykernel.sh" "${MODE}"
 else

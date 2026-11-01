@@ -7,7 +7,7 @@
 #   mode : lkm | resukisu  (default: lkm)
 #
 # Reads  ${PROJECT_ROOT}/out/<mode>/arch/arm64/boot/Image
-# Writes ${PROJECT_ROOT}/out/<mode>/SM8550_<tag>_<base-version>_<MMDD>.zip
+# Writes ${PROJECT_ROOT}/out/<mode>/SM8550_LKM_<base-version>_<MMDD>.zip
 
 set -euo pipefail
 
@@ -16,20 +16,20 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
 
 MODE="${1:-lkm}"
 case "${MODE}" in
-  lkm|resukisu) ;;
-  *) die "unknown mode '${MODE}'. Use lkm or resukisu." ;;
+  lkm) ;;
+  *) die "unknown mode '${MODE}'. Only lkm is maintained." ;;
 esac
 
-OUT_DIR="${PROJECT_ROOT}/out/${MODE}"
+OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/out/${MODE}}"
 IMAGE="${OUT_DIR}/arch/arm64/boot/Image"
 [[ -f "${IMAGE}" ]] || die "Image not found at ${IMAGE} -- run build.sh first."
 
-# Zip scheme (unified across sm8550/sm8650/sm8750): <prefix>_<tag>_<base-version>_<MMDD>.zip
-# e.g. SM8550_resukisu_5.15.207_0602.zip / SM8550_LKM_5.15.207_0602.zip. tag = resukisu/LKM;
+# Zip scheme (unified across sm8550/sm8650/sm8750): <prefix>_LKM_<base-version>_<MMDD>.zip
+# e.g. SM8550_LKM_5.15.207_0602.zip. tag = LKM;
 # base-version is VERSION.PATCHLEVEL.SUBLEVEL (kernel.release with the localversion
 # stripped); MMDD is the build month+day. The full -android13-5-...-<short-commit>-4k
 # string still lives in uname.
-TAG="resukisu"; [[ "${MODE}" == "lkm" ]] && TAG="LKM"
+TAG="LKM"
 MD="$(date +%m%d)"
 REL_FILE="${OUT_DIR}/include/config/kernel.release"
 if [[ -f "${REL_FILE}" ]]; then
@@ -53,6 +53,7 @@ cp -a "${AK3_BASE}" "${WORK}"
 # Systemless boot-only flash; drop the upstream sample ramdisk/patch.
 rm -rf "${WORK}/ramdisk" "${WORK}/patch" "${WORK}/modules"
 mkdir -p "${WORK}/ramdisk" "${WORK}/patch" "${WORK}/modules"
+rm -f "${WORK}/Image" "${WORK}/zImage"
 cp -p "${IMAGE}" "${WORK}/Image"
 
 # Render all SM8550 codenames into device.nameN lines.
@@ -103,11 +104,10 @@ ok "Wrote $(du -h "${ZIP_PATH}" | cut -f1) -> ${ZIP_PATH}"
 ls -lh "${ZIP_PATH}"
 log "Compatible codenames: ${SM8550_CODENAMES[*]}"
 
-# When invoked by kernel_ci_center (it exports PACK=1), also drop the zip in
-# the kernel-repo parent dir, which is where the CI collects build artifacts
-# (matches the sm8650/sm8750 build.sh convention of writing to KROOT/..).
-if [[ "${PACK:-0}" == "1" ]]; then
-  CI_ARTIFACT="${PROJECT_ROOT}/../${ZIP_NAME}"
-  cp -f "${ZIP_PATH}" "${CI_ARTIFACT}"
-  ok "Copied to CI artifact dir: ${CI_ARTIFACT}"
+# Keep the central CI artifact convention when requested by the build entry.
+# A direct legacy PACK=1 invocation still copies to the parent directory.
+if [[ ! ${CI_ARTIFACT_DIR+x} && ${PACK:-0} == 1 ]]; then
+  CI_ARTIFACT_DIR="${PROJECT_ROOT}/.."
 fi
+source "${SCRIPT_DIR}/../build_entry.sh"
+kernel_publish_zip "$ZIP_PATH"

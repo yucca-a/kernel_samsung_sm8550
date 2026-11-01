@@ -1,44 +1,14 @@
 #!/usr/bin/env bash
-# Apply optional feature patches.
-#
-# Default is 1 (on) for every flag. SuSFS is the only one that the
-# top-level build.sh forces off in lkm mode -- all others are equally
-# useful whether KSU is compiled in (resukisu mode) or loaded later
-# as a kernel module via init_boot (lkm mode).
-#
-#   APPLY_SUSFS=1     SuSFS VFS hiding hooks.
-#                     NEEDS CONFIG_KSU=y. fs/susfs.c hardcodes 'extern
-#                     struct cred *ksu_cred' and other KSU symbols on
-#                     hot paths, so the kernel link fails or NULL-derefs
-#                     on early VFS calls if KSU is a module.
-#   APPLY_BBG=1       Baseband-guard LSM. Independent of KSU. Protects
-#                     modem / vbmeta / dtbo from any root user.
-#   APPLY_ZRAM=1      Flip zram default compressor lzo-rle -> lz4
-#                     (defconfig only). This tree uses its existing
-#                     plain LZ4 implementation, updated with LTS.
-#   APPLY_BBR=1       BBRv1 TCP congestion control (defconfig only).
-#   APPLY_PTRACE_FIX=1 Upstream ptrace information-leak fix.
-#   APPLY_UNICODE_FIX=1
-#                     fs/unicode/utf8-norm.c bug fix that prevents
-#                     non-printable codepoints from being used to
-#                     disguise su paths. Independent of KSU.
-#   APPLY_NTSYNC=1    Windows NT-style sync primitives for Wine / Proton.
-#                     Independent of KSU.
-#   APPLY_DROIDSPACES=1
-#                     IPC / NS / netfilter knobs for Linux containers.
-#                     Independent of KSU.
-#   APPLY_ZEROMOUNT=1 ZeroMount mount hiding hooks.
-#                     Applied only when SuSFS is enabled, so lkm mode skips it.
-#
-# Re-running the script is safe: each step checks whether the patch
-# was already applied before re-applying.
+# Apply Root-independent features for the LKM-only kernel.
+# Feature flags: APPLY_BBG, APPLY_ZRAM, APPLY_BBR, APPLY_PTRACE_FIX,
+# APPLY_UNICODE_FIX, APPLY_NTSYNC, APPLY_DROIDSPACES, APPLY_IPV6_NAT_FIX,
+# APPLY_DISABLE_SAMSUNG_SEC (each defaults to 1).
 
 set -euo pipefail
 
 # shellcheck source=common.sh
 source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
 
-APPLY_SUSFS="${APPLY_SUSFS:-1}"
 APPLY_BBG="${APPLY_BBG:-1}"
 APPLY_ZRAM="${APPLY_ZRAM:-1}"
 APPLY_BBR="${APPLY_BBR:-1}"
@@ -46,167 +16,17 @@ APPLY_PTRACE_FIX="${APPLY_PTRACE_FIX:-1}"
 APPLY_UNICODE_FIX="${APPLY_UNICODE_FIX:-1}"
 APPLY_NTSYNC="${APPLY_NTSYNC:-1}"
 APPLY_DROIDSPACES="${APPLY_DROIDSPACES:-1}"
-APPLY_ZEROMOUNT="${APPLY_ZEROMOUNT:-1}"
 APPLY_IPV6_NAT_FIX="${APPLY_IPV6_NAT_FIX:-1}"
 APPLY_DISABLE_SAMSUNG_SEC="${APPLY_DISABLE_SAMSUNG_SEC:-1}"
 
+[[ ${MODE:-lkm} == lkm ]] || die "Only lkm is maintained."
+[[ ${APPLY_SUSFS:-0} == 0 && ${APPLY_ZEROMOUNT:-0} == 0 ]] || die "Built-in root features have been retired."
+python3 "${PROJECT_ROOT}/scripts/check_lkm.py" source "${PROJECT_ROOT}"
+cd "${PROJECT_ROOT}"
+
 CACHE_DIR="${PROJECT_ROOT}/.features_cache"
-SUSFS_REPO_DIR="${CACHE_DIR}/susfs4ksu"
-SUPER_BUILDERS_DIR="${CACHE_DIR}/super_builders"
 WILD_PATCHES_DIR="${CACHE_DIR}/wild_kernel_patches"
 mkdir -p "${CACHE_DIR}"
-
-# ---------- SuSFS ----------
-# Converged onto the sm8650/sm8750 approach: pin a susfs4ksu commit, copy the
-# fs/ + include/linux/ source drops, then apply the main patch *tolerantly*
-# (/usr/bin/patch --forward --fuzz=3) rather than the old strict `git apply`
-# which died on any context skew against Samsung's tree. Hunks that the patch
-# cannot place are handled by the targeted fixups below; remaining rejects are
-# logged (not fatal) so they can be folded into fixups on the next iteration.
-apply_susfs() {
-  # SuSFS upstream is gitlab.com/simonpunk; we use the GitHub mirror
-  # ShirkNeko/susfs4ksu (lockstep with upstream) since gitlab is often
-  # unreachable from CN networks. Remote/branch/pin come from common.sh.
-  log "SuSFS: clone ${SUSFS_BRANCH} @ ${SUSFS_PIN} from ${SUSFS_REMOTE}..."
-  if [[ -d "${SUSFS_REPO_DIR}/.git" ]]; then
-    git -C "${SUSFS_REPO_DIR}" remote set-url origin "${SUSFS_REMOTE}"
-    git -C "${SUSFS_REPO_DIR}" fetch --quiet --all --prune || true
-  else
-    git clone --quiet --branch "${SUSFS_BRANCH}" "${SUSFS_REMOTE}" "${SUSFS_REPO_DIR}"
-  fi
-  git -C "${SUSFS_REPO_DIR}" checkout --quiet "${SUSFS_PIN}" \
-    || die "Cannot resolve pinned SUSFS revision ${SUSFS_PIN}"
-
-  local kp="${SUSFS_REPO_DIR}/kernel_patches"
-  local patch="${kp}/50_add_susfs_in_gki-android13-5.15.patch"
-  [[ -f "${patch}" ]] || die "SuSFS patch missing: ${patch}"
-
-  log "SuSFS: copying fs/ and include/linux/ source drops..."
-  cp -rf "${kp}/fs/." "${PROJECT_ROOT}/fs/"
-  cp -rf "${kp}/include/linux/." "${PROJECT_ROOT}/include/linux/"
-
-  log "SuSFS: applying main patch (tolerant: --forward --fuzz=3)..."
-  ( cd "${PROJECT_ROOT}" && /usr/bin/patch -p1 --forward --fuzz=3 --no-backup-if-mismatch < "${patch}" ) \
-    || warn "  some SuSFS hunks did not place cleanly; fixups + reject log below"
-
-  # --- targeted fixups for hunks the patch can't place against Samsung's tree ---
-  # (ported from the sm8650/sm8750 trees; refine per build feedback)
-  # 1) fs/namespace.c include-area skew: ensure the susfs_def.h include is present.
-  if [[ -f "${PROJECT_ROOT}/fs/namespace.c" ]] && ! grep -q "linux/susfs_def.h" "${PROJECT_ROOT}/fs/namespace.c"; then
-    perl -0pi -e 's{#include <linux/mnt_idmapping.h>\n}{#include <linux/mnt_idmapping.h>\n#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT\n#include <linux/susfs_def.h>\n#endif\n}' "${PROJECT_ROOT}/fs/namespace.c" || true
-  fi
-  # Keep ReSukiSU/SUSFS SELinux hide intact. ReSukiSU detects the SUSFS
-  # manual hook via kernel/tools/susfs_compat.mk and exposes the needed
-  # fake_status symbols from feature/selinux_hide.c.
-
-  # Report rejects (non-fatal) so the next iteration can add fixups, then clean.
-  local rej; rej=$(find "${PROJECT_ROOT}" -name '*.rej' 2>/dev/null | wc -l)
-  if [[ "${rej}" -gt 0 ]]; then
-    warn "SuSFS: ${rej} reject(s) remain -- dumping (first 40 lines each):"
-    find "${PROJECT_ROOT}" -name '*.rej' -print -exec sed -n '1,40p' {} \; 2>/dev/null || true
-  else
-    ok "SuSFS: main patch placed with no rejects."
-  fi
-  log "  setresuid hook present: $(grep -c ksu_handle_setresuid "${PROJECT_ROOT}/kernel/sys.c" 2>/dev/null || echo 0)"
-  find "${PROJECT_ROOT}" -name '*.rej' -delete 2>/dev/null || true
-  find "${PROJECT_ROOT}" -name '*.orig' -delete 2>/dev/null || true
-}
-
-fix_zeromount_task_mmu() {
-  python3 - <<'PY'
-import pathlib
-import sys
-
-p = pathlib.Path('fs/proc/task_mmu.c')
-if not p.exists():
-    sys.exit(0)
-
-lines = p.read_text().splitlines(keepends=True)
-clean = []
-i = 0
-while i < len(lines):
-    if (
-        lines[i].strip() == '#ifdef CONFIG_ZEROMOUNT'
-        and i + 2 < len(lines)
-        and 'zeromount_spoof_mmap_metadata(inode, &dev, &ino);' in lines[i + 1]
-        and lines[i + 2].strip() == '#endif'
-    ):
-        i += 3
-        continue
-    clean.append(lines[i])
-    i += 1
-
-hook = [
-    '#ifdef CONFIG_ZEROMOUNT\n',
-    '\t\tzeromount_spoof_mmap_metadata(inode, &dev, &ino);\n',
-    '#endif\n',
-]
-
-for start, line in enumerate(clean):
-    if line.startswith('\tif (file) {'):
-        for end in range(start + 1, len(clean)):
-            if clean[end].startswith('\t}'):
-                block = ''.join(clean[start:end])
-                if (
-                    'struct inode *inode' in block
-                    and 'dev = inode->i_sb->s_dev;' in block
-                    and 'ino = inode->i_ino;' in block
-                ):
-                    clean[end:end] = hook
-                    p.write_text(''.join(clean))
-                    sys.exit(0)
-                break
-
-raise SystemExit('ZeroMount task_mmu fixup failed: file-backed VMA block not found')
-PY
-  ok "ZeroMount: task_mmu metadata hook fixed."
-}
-
-zeromount_core_present() {
-  [[ -f "${PROJECT_ROOT}/fs/zeromount.c" ]] &&
-    [[ -f "${PROJECT_ROOT}/include/linux/zeromount.h" ]] &&
-    grep -q 'config ZEROMOUNT' "${PROJECT_ROOT}/fs/Kconfig" &&
-    grep -q 'CONFIG_ZEROMOUNT' "${PROJECT_ROOT}/fs/Makefile" &&
-    grep -q 'zeromount_getname_hook' "${PROJECT_ROOT}/fs/namei.c" &&
-    grep -q 'zeromount_inject_dents' "${PROJECT_ROOT}/fs/readdir.c"
-}
-
-# ---------- ZeroMount ----------
-apply_zeromount() {
-  if [[ "${APPLY_SUSFS}" != "1" ]]; then
-    warn "ZeroMount skipped (lkm: pure kernel, SuSFS off)."
-    return
-  fi
-
-  log "ZeroMount: clone Super-Builders @ ${SUPER_BUILDERS_PIN} from ${SUPER_BUILDERS_REMOTE}..."
-  if [[ -d "${SUPER_BUILDERS_DIR}/.git" ]]; then
-    git -C "${SUPER_BUILDERS_DIR}" remote set-url origin "${SUPER_BUILDERS_REMOTE}"
-    git -C "${SUPER_BUILDERS_DIR}" fetch --quiet origin "${SUPER_BUILDERS_PIN}" 2>/dev/null || true
-  else
-    git clone --quiet "${SUPER_BUILDERS_REMOTE}" "${SUPER_BUILDERS_DIR}"
-  fi
-  git -C "${SUPER_BUILDERS_DIR}" checkout --quiet "${SUPER_BUILDERS_PIN}" 2>/dev/null \
-    || die "ZeroMount: cannot checkout Super-Builders pin ${SUPER_BUILDERS_PIN}"
-
-  local patch="${SUPER_BUILDERS_DIR}/android13-5.15/ReSukiSU/patches/60_zeromount-android13-5.15.patch"
-  [[ -f "${patch}" ]] || die "ZeroMount patch missing: ${patch}"
-
-  pushd "${PROJECT_ROOT}" >/dev/null
-  if zeromount_core_present; then
-    warn "ZeroMount: already applied."
-  elif /usr/bin/patch -p1 -R --dry-run -F3 -s -f --no-backup-if-mismatch < "${patch}" >/dev/null 2>&1; then
-    warn "ZeroMount: already applied."
-  elif /usr/bin/patch -p1 -F3 -s --no-backup-if-mismatch < "${patch}" >/dev/null 2>&1; then
-    ok "ZeroMount: patch applied."
-  else
-    find "${PROJECT_ROOT}" -name '*.rej' -print
-    die "ZeroMount: patch failed"
-  fi
-  fix_zeromount_task_mmu
-  find "${PROJECT_ROOT}" -name '*.rej' -delete 2>/dev/null || true
-  find "${PROJECT_ROOT}" -name '*.orig' -delete 2>/dev/null || true
-  popd >/dev/null
-}
 
 # ---------- BBG (Baseband-guard) ----------
 apply_bbg() {
@@ -217,10 +37,11 @@ apply_bbg() {
   # build's PATH that toybox shadows GNU coreutils, the realpath call
   # silently returns empty and 'ln -sfn "" ...' fails. Run BBG with the
   # system PATH first so the GNU realpath wins.
-  local saved_path="${PATH}"
-  export PATH="/usr/bin:/bin:${PATH}"
-  curl -fsSL https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh | bash
-  export PATH="${saved_path}"
+  local setup
+  setup=$(/usr/bin/mktemp "${CACHE_DIR}/baseband-guard.XXXXXX.sh")
+  curl -fLSs --retry 3 -o "${setup}" https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh
+  ( export PATH="/usr/bin:/bin:${PATH}"; bash "${setup}" )
+  rm -f -- "${setup}"
   popd >/dev/null
 
   # BBG's Makefile aborts unless 'baseband_guard' is in CONFIG_LSM.
@@ -349,7 +170,7 @@ apply_ptrace_fix() {
 # ---------- Wild Kernels: Unicode bypass fix ----------
 # Patch path-name handling so non-printable Unicode codepoints can't
 # be used to mask /sbin/su etc. against root detectors. Pairs nicely
-# with SuSFS.
+# with an external root implementation.
 apply_unicode_fix() {
   local kv_major kv_minor variant
   kv_major=$(awk '/^VERSION = / {print $3}' "${PROJECT_ROOT}/Makefile")
@@ -562,30 +383,11 @@ EOF
   ok "disable Samsung sec: 7 configs disabled."
 }
 
-# ReSukiSU handles su compatibility itself and no longer has the SUSFS
-# post-exec install_su_fd API. Do not install an unrelated driver fd here.
-apply_compat_patch() {
-  local patch_file="${SCRIPT_DIR}/features/$1"
-  if /usr/bin/patch -p1 -R --forward --dry-run --batch --fuzz=0 < "${patch_file}" >/dev/null 2>&1; then
-    return 0
-  fi
-  /usr/bin/patch -p1 --forward --batch --fuzz=0 --no-backup-if-mismatch < "${patch_file}" \
-    || die "Compatibility patch failed: $1"
-}
-
 main() {
-  log "Applying features (SuSFS=${APPLY_SUSFS} ZeroMount=${APPLY_ZEROMOUNT} BBG=${APPLY_BBG} zram=${APPLY_ZRAM} BBR=${APPLY_BBR} PtraceFix=${APPLY_PTRACE_FIX} Unicode=${APPLY_UNICODE_FIX} NTSync=${APPLY_NTSYNC} Droidspaces=${APPLY_DROIDSPACES} IPv6NATFix=${APPLY_IPV6_NAT_FIX} DisableSamsungSec=${APPLY_DISABLE_SAMSUNG_SEC})"
+  log "Applying features (BBG=${APPLY_BBG} zram=${APPLY_ZRAM} BBR=${APPLY_BBR} PtraceFix=${APPLY_PTRACE_FIX} Unicode=${APPLY_UNICODE_FIX} NTSync=${APPLY_NTSYNC} Droidspaces=${APPLY_DROIDSPACES} IPv6NATFix=${APPLY_IPV6_NAT_FIX} DisableSamsungSec=${APPLY_DISABLE_SAMSUNG_SEC})"
   if [[ "${APPLY_UNICODE_FIX}" == "1" ||
         "${APPLY_DROIDSPACES}" == "1" ]]; then
     prepare_wild_patches
-  fi
-  [[ "${APPLY_SUSFS}" == "1" ]] && apply_susfs
-  [[ "${APPLY_ZEROMOUNT}" == "1" ]] && apply_zeromount
-  if [[ "${APPLY_SUSFS}" == "1" ]]; then
-    apply_compat_patch resukisu-susfs-2.3.patch
-    if [[ "${APPLY_ZEROMOUNT}" == "1" ]]; then
-      apply_compat_patch zeromount-stat-c89.patch
-    fi
   fi
   [[ "${APPLY_BBG}" == "1" ]] && apply_bbg
   [[ "${APPLY_ZRAM}" == "1" ]] && apply_zram_lz4_neon

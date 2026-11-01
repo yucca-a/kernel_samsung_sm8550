@@ -169,7 +169,7 @@ sphinx_*/
 !/.kernel_build_mode
 # Toolchain extracted by scripts/build/setup_toolchain.sh
 /prebuilts/
-# KernelSU sources fetched by scripts/build/fetch_kernelsu.sh
+# Legacy local checkout (not used by current builds)
 /KernelSU/
 # AnyKernel3 packaging tree fetched by scripts/build/fetch_anykernel.sh
 /anykernel3/

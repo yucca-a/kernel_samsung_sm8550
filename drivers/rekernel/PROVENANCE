@@ -4,6 +4,9 @@ Directory: LKM-Source (Re:Kernel 11.6)
 License: GPL-2.0
 
 Local integration: built-in composite object instead of obj-m; Generic Netlink
-is the default, matching the official module. Both production build modes
-explicitly disable legacy raw Netlink.
+is the default, matching the official module. The LKM-compatible kernel build
+explicitly disables legacy raw Netlink.
 Upstream Kconfig switches are wired to NETWORK_FILTER / LEGACY_NETLINK.
+
+Local hardening: require CAP_NET_ADMIN for Generic Netlink monitor commands
+and event-group subscriptions; keep the version query public.

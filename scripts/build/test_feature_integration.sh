@@ -43,25 +43,6 @@ require_grep 'atomic_inc\(&pm_abort_suspend\);' "$WAKEUP" \
 reject_grep 'atomic_inc_return_relaxed\(&pm_abort_suspend\)' "$WAKEUP" \
   "later suspend-abort events are not suppressed"
 
-require_grep 'SUPER_BUILDERS_REMOTE=.*Enginex0/Super-Builders' "$COMMON" \
-  "common.sh must define Super-Builders as the ZeroMount source"
-require_grep 'SUPER_BUILDERS_REMOTE' "$APPLY" \
-  "apply_features.sh must fetch Super-Builders for ZeroMount patches"
-require_grep '60_zeromount-android13-5\.15\.patch' "$APPLY" \
-  "resukisu mode must apply the ZeroMount kernel patch"
-require_grep 'fix_zeromount_task_mmu' "$APPLY" \
-  "ZeroMount integration must fix task_mmu metadata hook placement"
-require_grep '/usr/bin/patch -p1 -F3 -s --no-backup-if-mismatch < "\$\{patch\}"' "$APPLY" \
-  "ZeroMount integration must use GNU patch, not PATH-shadowed toybox patch"
-reject_grep '51_enhanced_susfs-android13-5\.15\.patch' "$APPLY" \
-  "apply_features.sh must not force Super-Builders enhanced SUSFS over ShirkNeko SUSFS tip"
-require_grep 'ZeroMount.*lkm' "$APPLY" \
-  "lkm mode must explicitly skip ZeroMount"
-
-require_grep 'ZEROMOUNT' "$BUILD" \
-  "build.sh must enable/report CONFIG_ZEROMOUNT in resukisu mode"
-require_grep 'disable KSU.*disable KSU_SUSFS.*disable ZEROMOUNT|--disable KSU .*--disable KSU_SUSFS .*--disable ZEROMOUNT' "$BUILD" \
-  "build.sh must explicitly disable CONFIG_ZEROMOUNT in lkm mode"
 require_grep 'git rev-parse --short=7 HEAD' "$BUILD" \
   "build.sh must derive the default build id from the source commit"
 require_grep '\$\{KERNEL_TAG\}-\$\{BUILD_ID\}-\$\{PAGE_SIZE_TAG\}' "$BUILD" \
@@ -71,15 +52,9 @@ reject_grep 'shuf -i|abogki' "$BUILD" \
 reject_grep 'abogki' "$COMMON" \
   "common.sh naming comments must document the short commit build id"
 
-reject_grep 'fake_status.*NULL|ksu_selinux_hide_enabled\\).*&& 0|!ksu_selinux_hide_running/1|initialize_fake_status\\(\\);/\\(void\\)0' "$APPLY" \
-  "apply_features.sh must not neutralise ReSukiSU/SUSFS SELinux hide"
-
-
 # Performance tuning must not be reintroduced through the build-time patch list.
 reject_grep 'apply_wild_perf|APPLY_WILD_PERF|for p in silence_irq_cpu_logspam' "$APPLY" \
   "Wild performance injection is removed"
-require_grep 'RESUKISU_REF' "$COMMON" \
-  "ReSukiSU sources must use a fixed revision"
 require_grep 'apply_ptrace_fix' "$APPLY" \
   "the upstream ptrace fix is retained independently of Wild performance tuning"
 
@@ -97,11 +72,10 @@ legacy_default=$(sed -n '/^config REKERNEL_LEGACY_NETLINK/,/^endmenu/p' \
 [[ "$legacy_default" =~ default[[:space:]]+n$ ]] || fail "ReKernel must default to Generic Netlink"
 require_grep 'REKERNEL_MAJOR_VERSION[[:space:]]+"11\.6"' "$ROOT/drivers/rekernel/rekernel.h" \
   "ReKernel must remain on official 11.6"
-require_grep 'resukisu-susfs-2.3.patch' "$APPLY" \
-  "SUSFS 2.3 must be adapted to the pinned ReSukiSU exec hook API"
-[ -s "$ROOT/scripts/build/features/resukisu-susfs-2.3.patch" ] || fail "missing ReSukiSU compatibility patch"
+# The build must never stage a root implementation into this source tree.
+python3 "$ROOT/scripts/check_lkm.py" source "$ROOT"
+if grep -Eq 'ReSukiSU/|susfs4ksu|Super-Builders|fetch_kernelsu.sh' "$APPLY" "$BUILD"; then
+  fail "retired root dependency is still reachable from the build"
+fi
 
-require_grep '/usr/bin/patch -p1 -R --forward --dry-run --batch --fuzz=0' "$APPLY" \
-  "compatibility reverse checks must not auto-switch to forward application"
-
-echo "feature integration checks passed"
+echo "feature integration checks passed (LKM only)"

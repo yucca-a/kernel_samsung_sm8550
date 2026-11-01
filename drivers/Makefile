@@ -191,5 +191,3 @@ obj-$(CONFIG_COUNTER)		+= counter/
 obj-$(CONFIG_MOST)		+= most/
 
 obj-y				+= knox/
-
-obj-$(CONFIG_KSU)		+= kernelsu/

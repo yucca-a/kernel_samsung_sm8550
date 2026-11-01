@@ -58,39 +58,13 @@ TOOLCHAIN_URLS=(
   "https://github.com/YuzakiKokuban/android_kernel_samsung_sm8550_S23/releases/download/toolchain/toolchain_part_ac.tar.gz"
 )
 TOOLCHAIN_ROOT="${TOOLCHAIN_DIR:-${PROJECT_ROOT}/prebuilts}"
-# Auto-detect the clang version dir (CI-provided r450784e prebuilts or the
-# self-downloaded one); fall back to the r450784e path before it exists.
-_sm8550_clang_dirs=( "${TOOLCHAIN_ROOT}"/clang/host/linux-x86/clang-*/bin )
-if [[ -x "${_sm8550_clang_dirs[0]}/clang" ]]; then
-  CLANG_BIN="${_sm8550_clang_dirs[0]}"
-else
-  CLANG_BIN="${TOOLCHAIN_ROOT}/clang/host/linux-x86/clang-r450784e/bin"
-fi
+# SM8550 must use the matching Samsung toolchain even if other clangs coexist.
+CLANG_BIN="${TOOLCHAIN_ROOT}/clang/host/linux-x86/clang-r450784e/bin"
 BUILDTOOLS_BIN="${TOOLCHAIN_ROOT}/build-tools/linux-x86/bin"
 BUILDTOOLS_PATH_BIN="${TOOLCHAIN_ROOT}/build-tools/path/linux-x86"
 # kernel-build-tools provides pahole, depmod, mkbootimg, etc. that the
 # kernel build expects to find on PATH.
 KERNEL_BUILD_TOOLS_BIN="${TOOLCHAIN_ROOT}/kernel-build-tools/linux-x86/bin"
-
-# ---- ReSukiSU (KernelSU) configuration ----
-# Use the upstream setup.sh and sources from the same pinned commit.
-# This keeps all three SoC builds reproducible. setup.sh
-# clones ReSukiSU into KernelSU/ and wires drivers/kernelsu + Kconfig/Makefile
-# (those entries are already committed here, and setup.sh is idempotent).
-RESUKISU_REF="${RESUKISU_REF:-f1dd81dc96d7f3f6691e6ac8b50fba9ae8a2f17c}"
-RESUKISU_SETUP="${RESUKISU_SETUP:-https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/${RESUKISU_REF}/kernel/setup.sh}"
-KSU_DIR="${PROJECT_ROOT}/KernelSU"
-
-# ---- SuSFS configuration ----
-# Pin a known susfs4ksu commit (matches the sm8650/sm8750 approach) instead of
-# tracking the moving branch HEAD.
-SUSFS_REMOTE="${SUSFS_REMOTE_OVERRIDE:-https://github.com/ShirkNeko/susfs4ksu.git}"
-SUSFS_BRANCH="${SUSFS_BRANCH:-gki-android13-5.15}"
-SUSFS_PIN="${SUSFS_PIN:-415e4143ee1dd557c54d2b3d94ef098e5d1236f4}"  # SUSFS v2.3.0, 2026-09-06
-
-# ---- ZeroMount configuration ----
-SUPER_BUILDERS_REMOTE="${SUPER_BUILDERS_REMOTE:-https://github.com/Enginex0/Super-Builders.git}"
-SUPER_BUILDERS_PIN="${SUPER_BUILDERS_PIN:-c2cb71614868fe742cbffee2b6f3126523432673}" # android13-5.15 ReSukiSU ZeroMount
 
 # ---- Wild Kernels patch configuration ----
 WILD_PATCHES_PIN="${WILD_PATCHES_PIN:-35fac8ee31035fb73a8b9301b50c2bdb4ff7feb7}"

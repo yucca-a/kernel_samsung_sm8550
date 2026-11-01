@@ -108,13 +108,18 @@ static const struct nla_policy rekernel_genl_policy[REKERNEL_A_MAX + 1] = {
 	[REKERNEL_A_PID] = { .type = NLA_U32 },
 };
 
+/* Monitoring other UIDs and receiving process events require CAP_NET_ADMIN.
+ * Keep GET_VERSION public for capability discovery. The family is init-net only.
+ */
 static const struct genl_ops rekernel_genl_ops[] = {
 	{
 		.cmd  = REKERNEL_C_ADD_MONITOR_NET,
+		.flags = GENL_ADMIN_PERM,
 		.doit = rekernel_genl_add_monitor_net,
 	},
 	{
 		.cmd  = REKERNEL_C_DEL_MONITOR_NET,
+		.flags = GENL_ADMIN_PERM,
 		.doit = rekernel_genl_del_monitor_net,
 	},
 	{
@@ -124,7 +129,7 @@ static const struct genl_ops rekernel_genl_ops[] = {
 };
 
 static const struct genl_multicast_group rekernel_genl_mcgrps[] = {
-	{ .name = REKERNEL_GENL_MCGRP_NAME },
+	{ .name = REKERNEL_GENL_MCGRP_NAME, .flags = GENL_MCAST_CAP_NET_ADMIN },
 };
 
 static struct genl_family rekernel_genl_family = {

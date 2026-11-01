@@ -38,6 +38,8 @@ struct rekernel_monitor_net_args {
  * This is the ABI contract with the userspace daemon: the daemon resolves
  * the family by name via CTRL_CMD_GETFAMILY, joins the multicast group to
  * receive events, and sends MONITOR_NET / DEL_MONITOR_NET commands.
+ * MONITOR_NET, DEL_MONITOR_NET and event subscriptions require CAP_NET_ADMIN
+ * in the initial network namespace. GET_VERSION remains unprivileged.
  * There is no REMOVE_PROC command: genl does not create /proc/rekernel.
  */
 #define REKERNEL_GENL_FAMILY_NAME       "rekernel"
